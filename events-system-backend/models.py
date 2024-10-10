@@ -219,5 +219,5 @@ class AdminDetails(db.Model):
     admin = db.relationship('User', backref=db.backref('admin_details', uselist=False))
         
 # Location where the database will be created
-DATABASE_URL = 'mysql+pymysql://root:P%40ssw0rd24@localhost/events-system'
+DATABASE_URL = 'mysql+pymysql://root:P%40ssw0rd24@localhost/events-system-db'
 engine = create_engine(DATABASE_URL)
