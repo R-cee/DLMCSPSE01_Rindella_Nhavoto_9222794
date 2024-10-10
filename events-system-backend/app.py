@@ -1,5 +1,5 @@
 import os, pymysql
-from models import db, User, UserInteraction, Profile
+from models import db, User, UserInteraction, Profile, Notification
 from flask import Flask, jsonify, request, redirect, url_for, send_from_directory
 from flask_login import LoginManager, logout_user
 from datetime import timedelta
@@ -141,7 +141,11 @@ class UserRoutes:
             if user.status != 'active':
                 return jsonify({'errors': 'User is not active'}), 400
 
-            access_token = create_access_token(identity={'user_id': user.user_id, 'role': user.role})
+            access_token = create_access_token(identity={
+                'user_id': user.user_id,
+                'username': user.username,
+                'role': user.role
+            })
             
             if user.role == 'Attendee':
                 redirect_url = '/landing'
@@ -152,7 +156,12 @@ class UserRoutes:
             else:
                 return jsonify({'errors': 'Invalid user role'}), 400
 
-            return jsonify({'access_token': access_token, 'redirect': redirect_url, 'username': user.username, 'role': user.role}), 200
+            return jsonify({
+                'access_token': access_token,
+                'redirect': redirect_url,
+                'username': user.username,
+                'role': user.role
+            }), 200
         else:
             return jsonify({'errors': 'Invalid username or password'}), 400
 
@@ -166,13 +175,6 @@ class UserRoutes:
         logout_user()
         return redirect(url_for('login'))
 
-    @app.route('/host-dashboard')
-    def host_dashboard():
-        """
-        Display the host dashboard page.
-        """
-        return send_from_directory(app.static_folder, 'index.html')
-    
     def allowed_file(filename):
             """
             Check if the provided filename has an allowed file extension.
@@ -194,9 +196,48 @@ class UserRoutes:
         """
         return send_from_directory(app.config['UPLOAD_CERT'], filename)
       
-    @app.route('/vetting', methods=['POST'])
+    @app.route('/admin-dashboard')
     @jwt_required()
-    def vetting():
+    def admin_dashboard():
+        """
+        Display the admin dashboard page.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        return send_from_directory(app.static_folder, 'index.html')
+
+      
+   
+        """	
+        Get the vetting information of a user.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        profile = Profile.query.filter_by(user_id=user_id).first()
+        if not profile:
+            return jsonify({'error': 'Profile not found'}), 404
+
+        profile_data = {
+            'first_name': profile.first_name,
+            'last_name': profile.last_name,
+            'phone_number': profile.phone_number,
+            'address': profile.address,
+            'host_type': profile.host_type,
+            'document_id': profile.document_id,
+            'business_certificate': profile.business_certificate,
+            'status': profile.status
+        }
+        
+        return jsonify(profile_data)
+     
         """
         Submit vetting form data.
         Requires user authentication (JWT).
@@ -247,6 +288,185 @@ class UserRoutes:
 
         return jsonify({'message': 'Profile submitted and pending approval'}), 200
 
+    @app.route('/api/admin/profile-counters')
+    @jwt_required()
+    def get_profile_counters():
+        """	
+        Get the number of pending, approved, and rejected profiles.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+        
+        pending_count = Profile.query.filter_by(status='Pending').count()
+        approved_count = Profile.query.filter_by(status='Approved').count()
+        rejected_count = Profile.query.filter_by(status='Rejected').count()
+        
+        return jsonify({
+            'pending': pending_count,
+            'approved': approved_count,
+            'rejected': rejected_count
+        })
 
+    @app.route('/api/admin/profiles', methods=['GET'])
+    @jwt_required()
+    def get_profiles_by_status():
+        """
+        Get a list of profiles by status.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        status = request.args.get('status')
+        if status not in ['Pending', 'Approved', 'Rejected']:
+            return jsonify({'error': 'Invalid status'}), 400
+
+        profiles = Profile.query.filter_by(status=status).all()
+        profiles_data = [
+            {
+                'user_id': profile.user_id,
+                'username': User.query.filter_by(user_id=profile.user_id).first().username,
+                'first_name': profile.first_name,
+                'last_name': profile.last_name,
+                'host_type': profile.host_type,
+            }
+            for profile in profiles
+        ]
+        
+        return jsonify(profiles_data)
+
+    @app.route('/admin/vetting/<int:user_id>', methods=['GET'])
+    @jwt_required()
+    def view_vetting_information(user_id):
+        """	
+        Get the vetting information of a user.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        profile = Profile.query.filter_by(user_id=user_id).first()
+        if not profile:
+            return jsonify({'error': 'Profile not found'}), 404
+
+        profile_data = {
+            'first_name': profile.first_name,
+            'last_name': profile.last_name,
+            'phone_number': profile.phone_number,
+            'address': profile.address,
+            'host_type': profile.host_type,
+            'document_id': profile.document_id,
+            'business_certificate': profile.business_certificate,
+            'status': profile.status
+        }
+        
+        return jsonify(profile_data)
+        
+    @app.route('/admin/vetting/update/<int:user_id>', methods=['POST'])
+    @jwt_required()
+    def update_profile_status(user_id):
+        """
+        Update the status of a user's profile.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        profile = Profile.query.filter_by(user_id=user_id).first()
+
+        if not profile:
+            return jsonify({'error': 'Profile not found'}), 404
+
+        data = request.json
+        status = data.get('status')
+
+        if status not in ['Approved', 'Rejected']:
+            return jsonify({'error': 'Invalid status provided'}), 400
+
+        profile.status = status
+
+        try:
+            log = UserInteraction(
+                user_id=current_user['user_id'],  
+                username=current_user['username'], 
+                action=f'Profile_{status.lower()}'
+            )
+            db.session.add(log)
+
+            notification_message = "Your profile has been approved." if status == "Approved" else "Your profile has been rejected."
+            notification = Notification(
+                user_id=user_id,
+                message=notification_message,
+                is_read=False
+            )
+            db.session.add(notification)
+
+            db.session.commit()
+
+            return jsonify({'success': True}), 200
+
+        except Exception as e:
+            db.session.rollback()
+
+            return jsonify({'error': 'Database commit failed'}), 500
+
+    @app.route('/admin/view-logs', methods=['GET'])
+    @jwt_required()
+    def view_logs():
+        """
+        Display the user interactions in the admin logs
+        Requires user authentication and admin role.
+        """
+        try:
+            current_user = get_jwt_identity()
+            if current_user.get('role') != 'Admin':
+                return jsonify({'error': 'Unauthorized access'}), 403
+
+            page = request.args.get('page', 1, type=int)
+            action_filter = request.args.get('action', None, type=str)
+            username_search = request.args.get('username', None, type=str)
+
+            query = UserInteraction.query
+
+            if action_filter:
+                query = query.filter(UserInteraction.action == action_filter)
+
+            if username_search:
+                query = query.filter(UserInteraction.username.ilike(f"%{username_search}%"))
+
+            pagination = query.order_by(UserInteraction.timestamp.desc()).paginate(page=page, per_page=10, error_out=False)
+            interactions = pagination.items
+
+            interactions_data = [
+                {
+                    'interaction_id': interaction.interaction_id,
+                    'user_id': interaction.user_id,
+                    'username': interaction.username,
+                    'action': interaction.action,
+                    'timestamp': interaction.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                    'event_id': interaction.event_id
+                }
+                for interaction in interactions
+            ]
+
+            return jsonify({
+                'interactions': interactions_data,
+                'total_pages': pagination.pages,
+                'current_page': pagination.page,
+                'total_items': pagination.total
+            }), 200
+
+        except Exception as e:
+            return jsonify({'error': f'Failed to retrieve logs: {str(e)}'}), 500
+  
 if __name__ == '__main__':
     app.run(debug=True)

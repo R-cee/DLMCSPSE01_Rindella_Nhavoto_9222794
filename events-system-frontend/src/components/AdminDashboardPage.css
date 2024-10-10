@@ -1,0 +1,138 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f4;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  
+  .header {
+    width: 100%;
+    background-color: #1A1B6B;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+  }
+  
+  .nav-links {
+    display: flex;
+    justify-content: flex-end;
+  }
+  
+  .nav-links ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: 20px;
+  }
+  
+  .nav-links li {
+    display: inline;
+  }
+  
+  .nav-links a, .nav-links button {
+    text-decoration: none;
+    color: #ffffff;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  
+  .nav-links a:hover, .nav-links button:hover {
+    color: #e0e0e0;
+  }
+  
+  .content {
+    width: 100%;
+    max-width: 1000px;
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    margin-top: 140px;
+    text-align: center;
+  }
+  
+  .content h1 {
+    font-size: 32px;
+    color: #333333;
+    margin-bottom: 20px;
+  }
+  
+  .counters {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 30px;
+  }
+  
+  .counter {
+    background-color: #4C088A;
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    width: 150px;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .counter:hover {
+    background-color: #7132b4;
+  }
+  
+  .actions {
+    margin-bottom: 30px;
+  }
+  
+  .actions button {
+    margin: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    display: block;
+    width: 400px;
+    height: 50px;
+    margin: 10px auto;
+    background-color: #4C088A;
+    color: white;
+    cursor: pointer;
+    margin-top: 20px; 
+    transition: background-color 0.3s ease;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .actions button:hover {
+    background-color: #7132b4;
+  }
+  
+  .profiles-list {
+    margin-top: 20px;
+  }
+  
+  .profiles-list ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .profiles-list li {
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .profiles-list li:hover {
+    background-color: #f1f1f1;
+  }
+  
