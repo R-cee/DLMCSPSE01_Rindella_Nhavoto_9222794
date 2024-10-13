@@ -126,7 +126,7 @@ const VettingForm = ({ isAdmin = false }) => {
 
   return (
     <div className="vetting-form-container">
-      {userRole && userRole.toLowerCase() === 'admin' && <HostHeader />}
+      <HostHeader />
       <form onSubmit={handleSubmit}>
         <label>
           Host Type:
