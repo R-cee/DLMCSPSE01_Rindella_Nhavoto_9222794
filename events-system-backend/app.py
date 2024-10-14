@@ -1,5 +1,5 @@
 import os, pymysql
-from models import db, User, UserInteraction, Profile, Notification
+from models import db, User, UserInteraction, Profile, Notification, Event
 from flask import Flask, jsonify, request, redirect, url_for, send_from_directory
 from flask_login import LoginManager, logout_user
 from datetime import timedelta
@@ -196,6 +196,10 @@ class UserRoutes:
         """
         return send_from_directory(app.config['UPLOAD_CERT'], filename)
       
+    @app.route('/event_images/<filename>')
+    def event_images(filename):
+        return send_from_directory(app.config['UPLOAD_EVENT'], filename)
+  
     @app.route('/admin-dashboard')
     @jwt_required()
     def admin_dashboard():
@@ -468,5 +472,84 @@ class UserRoutes:
         except Exception as e:
             return jsonify({'error': f'Failed to retrieve logs: {str(e)}'}), 500
   
+    @app.route('/api/admin/events', methods=['GET'])
+    @jwt_required()
+    def get_admin_events():
+        """
+        Get a list of events.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+        
+        events = Event.query.all()
+        events_data = [
+            {
+                'event_id': event.event_id,
+                'event_name': event.event_name,
+                'event_description': event.event_description,
+                'event_location': event.event_location,
+                'event_date': event.event_date.strftime('%Y-%m-%dT%H:%M'),
+                'event_status': event.event_status,
+                'event_poster': event.event_poster,
+                'event_category': event.event_category,
+            }
+            for event in events
+        ]
+        
+        return jsonify(events_data)
+
+    @app.route('/admin/event/update-status/<int:event_id>', methods=['POST'])
+    @jwt_required()
+    def update_event_status(event_id):
+        """
+        Update the status of an event.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':	
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        event = Event.query.get(event_id)
+        if not event:
+            return jsonify({'error': 'Event not found'}), 404
+
+        data = request.json
+        status = data.get('status')
+        reason = data.get('reason', '')
+
+        if status not in ['Approved', 'Rejected']:
+            return jsonify({'error': 'Invalid status provided'}), 400
+
+        event.event_status = status
+
+        action = f'Event_{status.lower()}'
+        log = UserInteraction(user_id=current_user.get('user_id'), username=current_user.get('username'), action=action)
+        db.session.add(log)
+
+        if status == 'Rejected':
+            event.rejection_reason = reason 
+
+        db.session.commit()
+
+        return jsonify({'success': True}), 200
+
+    @app.route('/admin/manage-events')
+    @jwt_required()
+    def manage_events():
+        """
+        Display the manage events page.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':	
+            return jsonify({'error': 'Unauthorized access'}), 403
+        return send_from_directory(app.static_folder, 'index.html')
+     
+
 if __name__ == '__main__':
     app.run(debug=True)
