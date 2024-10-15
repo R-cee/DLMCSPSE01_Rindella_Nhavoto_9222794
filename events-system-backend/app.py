@@ -1,16 +1,18 @@
 import os, pymysql
-from models import db, User, UserInteraction, Profile, Notification, Event
+from models import db, User, UserInteraction, Event, Transaction
 from flask import Flask, jsonify, request, redirect, url_for, send_from_directory
 from flask_login import LoginManager, logout_user
-from datetime import timedelta
+from datetime import timedelta, datetime
 from flask_cors import CORS
 from config import Config
 from flask import request, jsonify
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-from werkzeug.utils import secure_filename
+import stripe
 
 app = Flask(__name__, static_folder='../events-system-frontend/build', static_url_path='')
 CORS(app)
+
+stripe.api_key = 'sk_test_51Q9xXHP5Lv2xb3IZKkyE6Dhh9WuVKx30sTt9b83BlgXL4THFKbbWCVIRJ1JaeHxk0J46oEArSxZGnYK45HbG69yw0072XMGkWh'
 
 app.config.from_object(Config)
 app.config['JWT_SECRET_KEY'] = Config.SECRET_KEY
@@ -200,356 +202,291 @@ class UserRoutes:
     def event_images(filename):
         return send_from_directory(app.config['UPLOAD_EVENT'], filename)
   
-    @app.route('/admin-dashboard')
-    @jwt_required()
-    def admin_dashboard():
+    @app.route('/landing')
+    def landing():
         """
-        Display the admin dashboard page.
-        Requires user authentication and admin role.
+        Display the landing page of the Attendee.
         """
-        current_user = get_jwt_identity()
-        
-        if current_user.get('role') != 'Admin':
-            return jsonify({'error': 'Unauthorized access'}), 403
-
         return send_from_directory(app.static_folder, 'index.html')
-
-      
-   
-        """	
-        Get the vetting information of a user.
-        Requires user authentication and admin role.
+    
+    @app.route('/events/countries', methods=['GET'])
+    def get_countries():
         """
-        current_user = get_jwt_identity()
-        
-        if current_user.get('role') != 'Admin':
-            return jsonify({'error': 'Unauthorized access'}), 403
-
-        profile = Profile.query.filter_by(user_id=user_id).first()
-        if not profile:
-            return jsonify({'error': 'Profile not found'}), 404
-
-        profile_data = {
-            'first_name': profile.first_name,
-            'last_name': profile.last_name,
-            'phone_number': profile.phone_number,
-            'address': profile.address,
-            'host_type': profile.host_type,
-            'document_id': profile.document_id,
-            'business_certificate': profile.business_certificate,
-            'status': profile.status
-        }
-        
-        return jsonify(profile_data)
-     
+        Retrieve the list of distinct countries from the events table.
+        Returns a JSON list of country names.
         """
-        Submit vetting form data.
-        Requires user authentication (JWT).
+        countries = db.session.query(Event.event_country).distinct().all()
+        country_list = [country[0] for country in countries]
+        return jsonify(country_list)
+
+    @app.route('/events/filters', methods=['GET'])
+    def get_filters():
         """
-        current_user = get_jwt_identity()
-        
-        user_id = current_user.get('user_id')
-        
-        existing_profile = Profile.query.filter_by(user_id=user_id).first()
-        if existing_profile:
-            return jsonify({'error': 'Profile already submitted and pending approval'}), 403
-
-        form_data = request.form
-        files = request.files
-
-        document_id_file = files.get('document_id')
-        business_certificate_file = files.get('business_certificate') if form_data.get('host_type') in ['Business', 'Organization'] else None
-
-        document_id_filename = None
-        business_certificate_filename = None
-
-        if document_id_file:
-            document_id_filename = secure_filename(document_id_file.filename)
-            document_id_file.save(os.path.join(app.config['UPLOAD_ID'], document_id_filename))
-
-        if business_certificate_file:
-            business_certificate_filename = secure_filename(business_certificate_file.filename)
-            business_certificate_file.save(os.path.join(app.config['UPLOAD_CERT'], business_certificate_filename))
-
-        profile = Profile(
-            user_id=user_id,
-            first_name=form_data.get('first_name'),
-            last_name=form_data.get('last_name'),
-            phone_number=form_data.get('phone_number'),
-            address=form_data.get('address'),
-            host_type=form_data.get('host_type'),
-            document_id=document_id_filename,
-            business_certificate=business_certificate_filename,
-            status='Pending' 
-        )
-        
-        db.session.add(profile)
-        db.session.commit()
-        
-        log = UserInteraction(user_id=current_user.get('user_id'), username=current_user.get('username'), action='Profile_submitted')
-        db.session.add(log)
-        db.session.commit()
-
-        return jsonify({'message': 'Profile submitted and pending approval'}), 200
-
-    @app.route('/api/admin/profile-counters')
-    @jwt_required()
-    def get_profile_counters():
-        """	
-        Get the number of pending, approved, and rejected profiles.
-        Requires user authentication and admin role.
+        Get event filters based on the selected country.
+        Returns the locations and categories available for the specified country.
         """
-        current_user = get_jwt_identity()
-        
-        if current_user.get('role') != 'Admin':
-            return jsonify({'error': 'Unauthorized access'}), 403
-        
-        pending_count = Profile.query.filter_by(status='Pending').count()
-        approved_count = Profile.query.filter_by(status='Approved').count()
-        rejected_count = Profile.query.filter_by(status='Rejected').count()
-        
+        country = request.args.get('country')
+
+        if not country:
+            return jsonify({'error': 'Country is required'}), 400
+
+        locations = db.session.query(Event.event_location).filter(Event.event_country == country).distinct().all()
+        categories = db.session.query(Event.event_category).filter(Event.event_country == country).distinct().all()
+
+        location_list = [location[0] for location in locations]
+        category_list = [category[0] for category in categories]
+
         return jsonify({
-            'pending': pending_count,
-            'approved': approved_count,
-            'rejected': rejected_count
+            'locations': location_list,
+            'categories': category_list
         })
 
-    @app.route('/api/admin/profiles', methods=['GET'])
-    @jwt_required()
-    def get_profiles_by_status():
+    @app.route('/events', methods=['GET'])
+    def get_events():
         """
-        Get a list of profiles by status.
-        Requires user authentication and admin role.
+        Retrieve a list of events filtered by country, location, category, and status.
+        Default status is 'Approved'.
         """
-        current_user = get_jwt_identity()
-        
-        if current_user.get('role') != 'Admin':
-            return jsonify({'error': 'Unauthorized access'}), 403
+        country = request.args.get('country')
+        location = request.args.get('location')
+        category = request.args.get('category')
+        status = request.args.get('status', 'Approved') 
 
-        status = request.args.get('status')
-        if status not in ['Pending', 'Approved', 'Rejected']:
-            return jsonify({'error': 'Invalid status'}), 400
+        if not country:
+            return jsonify({'error': 'Country is required'}), 400
 
-        profiles = Profile.query.filter_by(status=status).all()
-        profiles_data = [
-            {
-                'user_id': profile.user_id,
-                'username': User.query.filter_by(user_id=profile.user_id).first().username,
-                'first_name': profile.first_name,
-                'last_name': profile.last_name,
-                'host_type': profile.host_type,
-            }
-            for profile in profiles
-        ]
-        
-        return jsonify(profiles_data)
+        query = Event.query.filter_by(event_country=country, event_status=status)
 
-    @app.route('/admin/vetting/<int:user_id>', methods=['GET'])
-    @jwt_required()
-    def view_vetting_information(user_id):
-        """	
-        Get the vetting information of a user.
-        Requires user authentication and admin role.
-        """
-        current_user = get_jwt_identity()
-        
-        if current_user.get('role') != 'Admin':
-            return jsonify({'error': 'Unauthorized access'}), 403
+        if location:
+            query = query.filter_by(event_location=location)
 
-        profile = Profile.query.filter_by(user_id=user_id).first()
-        if not profile:
-            return jsonify({'error': 'Profile not found'}), 404
+        if category:
+            query = query.filter_by(event_category=category)
 
-        profile_data = {
-            'first_name': profile.first_name,
-            'last_name': profile.last_name,
-            'phone_number': profile.phone_number,
-            'address': profile.address,
-            'host_type': profile.host_type,
-            'document_id': profile.document_id,
-            'business_certificate': profile.business_certificate,
-            'status': profile.status
-        }
-        
-        return jsonify(profile_data)
-        
-    @app.route('/admin/vetting/update/<int:user_id>', methods=['POST'])
-    @jwt_required()
-    def update_profile_status(user_id):
-        """
-        Update the status of a user's profile.
-        Requires user authentication and admin role.
-        """
-        current_user = get_jwt_identity()
-
-        if current_user.get('role') != 'Admin':
-            return jsonify({'error': 'Unauthorized access'}), 403
-
-        profile = Profile.query.filter_by(user_id=user_id).first()
-
-        if not profile:
-            return jsonify({'error': 'Profile not found'}), 404
-
-        data = request.json
-        status = data.get('status')
-
-        if status not in ['Approved', 'Rejected']:
-            return jsonify({'error': 'Invalid status provided'}), 400
-
-        profile.status = status
-
-        try:
-            log = UserInteraction(
-                user_id=current_user['user_id'],  
-                username=current_user['username'], 
-                action=f'Profile_{status.lower()}'
-            )
-            db.session.add(log)
-
-            notification_message = "Your profile has been approved." if status == "Approved" else "Your profile has been rejected."
-            notification = Notification(
-                user_id=user_id,
-                message=notification_message,
-                is_read=False
-            )
-            db.session.add(notification)
-
-            db.session.commit()
-
-            return jsonify({'success': True}), 200
-
-        except Exception as e:
-            db.session.rollback()
-
-            return jsonify({'error': 'Database commit failed'}), 500
-
-    @app.route('/admin/view-logs', methods=['GET'])
-    @jwt_required()
-    def view_logs():
-        """
-        Display the user interactions in the admin logs
-        Requires user authentication and admin role.
-        """
-        try:
-            current_user = get_jwt_identity()
-            if current_user.get('role') != 'Admin':
-                return jsonify({'error': 'Unauthorized access'}), 403
-
-            page = request.args.get('page', 1, type=int)
-            action_filter = request.args.get('action', None, type=str)
-            username_search = request.args.get('username', None, type=str)
-
-            query = UserInteraction.query
-
-            if action_filter:
-                query = query.filter(UserInteraction.action == action_filter)
-
-            if username_search:
-                query = query.filter(UserInteraction.username.ilike(f"%{username_search}%"))
-
-            pagination = query.order_by(UserInteraction.timestamp.desc()).paginate(page=page, per_page=10, error_out=False)
-            interactions = pagination.items
-
-            interactions_data = [
-                {
-                    'interaction_id': interaction.interaction_id,
-                    'user_id': interaction.user_id,
-                    'username': interaction.username,
-                    'action': interaction.action,
-                    'timestamp': interaction.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                    'event_id': interaction.event_id
-                }
-                for interaction in interactions
-            ]
-
-            return jsonify({
-                'interactions': interactions_data,
-                'total_pages': pagination.pages,
-                'current_page': pagination.page,
-                'total_items': pagination.total
-            }), 200
-
-        except Exception as e:
-            return jsonify({'error': f'Failed to retrieve logs: {str(e)}'}), 500
-  
-    @app.route('/api/admin/events', methods=['GET'])
-    @jwt_required()
-    def get_admin_events():
-        """
-        Get a list of events.
-        Requires user authentication and admin role.
-        """
-        current_user = get_jwt_identity()
-        
-        if current_user.get('role') != 'Admin':
-            return jsonify({'error': 'Unauthorized access'}), 403
-        
-        events = Event.query.all()
+        events = query.all()
         events_data = [
             {
                 'event_id': event.event_id,
                 'event_name': event.event_name,
                 'event_description': event.event_description,
                 'event_location': event.event_location,
-                'event_date': event.event_date.strftime('%Y-%m-%dT%H:%M'),
-                'event_status': event.event_status,
-                'event_poster': event.event_poster,
                 'event_category': event.event_category,
+                'event_date': event.event_date.strftime('%Y-%m-%dT%H:%M'),
+                'event_price': event.event_price,
+                'event_capacity': event.event_capacity,
+                'event_status': event.event_status,
+                'event_poster': event.event_poster
             }
             for event in events
         ]
-        
+
         return jsonify(events_data)
 
-    @app.route('/admin/event/update-status/<int:event_id>', methods=['POST'])
-    @jwt_required()
-    def update_event_status(event_id):
+    @app.route('/api/events/<int:event_id>', methods=['GET'])
+    def get_event_details(event_id):
         """
-        Update the status of an event.
-        Requires user authentication and admin role.
+        Retrieve the details of a specific event by its event ID.
+        Returns the event data in JSON format.
         """
-        current_user = get_jwt_identity()
-        
-        if current_user.get('role') != 'Admin':	
-            return jsonify({'error': 'Unauthorized access'}), 403
-
         event = Event.query.get(event_id)
         if not event:
             return jsonify({'error': 'Event not found'}), 404
 
-        data = request.json
-        status = data.get('status')
-        reason = data.get('reason', '')
+        event_data = {
+            'event_id': event.event_id,
+            'event_name': event.event_name,
+            'event_description': event.event_description,
+            'event_location': event.event_location,
+            'event_date': event.event_date.strftime('%Y-%m-%dT%H:%M'),
+            'event_price': event.event_price,
+            'event_capacity': event.event_capacity,
+            'event_poster': event.event_poster,
+            'event_status': event.event_status
+        }
 
-        if status not in ['Approved', 'Rejected']:
-            return jsonify({'error': 'Invalid status provided'}), 400
+        return jsonify(event_data)
 
-        event.event_status = status
-
-        action = f'Event_{status.lower()}'
-        log = UserInteraction(user_id=current_user.get('user_id'), username=current_user.get('username'), action=action)
-        db.session.add(log)
-
-        if status == 'Rejected':
-            event.rejection_reason = reason 
-
-        db.session.commit()
-
-        return jsonify({'success': True}), 200
-
-    @app.route('/admin/manage-events')
+    @app.route('/create-payment-intent', methods=['POST'])
     @jwt_required()
-    def manage_events():
+    def create_payment_intent():
+        try:
+            data = request.json
+            amount = data.get('amount') 
+
+            intent = stripe.PaymentIntent.create(
+                amount=int(amount),
+                currency='usd',
+                automatic_payment_methods={'enabled': True},
+            )
+
+            return jsonify({'clientSecret': intent['client_secret']}), 200
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/checkout', methods=['POST'])
+    @jwt_required()
+    def checkout():
+        try:
+            current_user = get_jwt_identity()
+            data = request.json
+            payment_intent_id = data.get('payment_intent_id')
+            event_id = data.get('event_id')
+            tickets_purchased = data.get('tickets_purchased', 1)
+
+            # Check for missing required fields
+            if not payment_intent_id or not event_id:
+                return jsonify({'error': 'Missing payment intent ID or event ID'}), 400
+
+            # Retrieve the PaymentIntent from Stripe
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+
+            # Check if the payment was successful
+            if intent['status'] == 'succeeded':
+                amount_paid = intent['amount'] / 100  # Convert to USD (cents to dollars)
+                
+                # Find the event in the database
+                event = Event.query.get(event_id)
+                if not event:
+                    return jsonify({'error': 'Event not found'}), 404
+
+                # Check if there are enough tickets available
+                if event.event_capacity < tickets_purchased:
+                    return jsonify({'error': 'Not enough tickets available'}), 400
+
+                # Create a new transaction
+                new_transaction = Transaction(
+                    event_id=event_id,
+                    user_id=current_user.get('user_id'),
+                    payment_status='Success',
+                    amount_paid=amount_paid,
+                    quantity=tickets_purchased,
+                    transaction_date=datetime.utcnow()
+                )
+
+                # Update event capacity
+                event.event_capacity -= tickets_purchased
+
+                # Save the transaction and commit changes to the database
+                db.session.add(new_transaction)
+                db.session.commit()
+
+                return jsonify({'message': 'Payment recorded successfully'}), 200
+            else:
+                return jsonify({'error': 'Payment not completed'}), 400
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Failed to complete payment: {str(e)}'}), 500
+
+    @app.route('/events/<int:event_id>/like', methods=['POST', 'DELETE'])
+    @jwt_required()
+    def like_unlike_event(event_id):
         """
-        Display the manage events page.
-        Requires user authentication and admin role.
+        Handle the like/unlike event action by a user.
         """
-        current_user = get_jwt_identity()
-        
-        if current_user.get('role') != 'Admin':	
-            return jsonify({'error': 'Unauthorized access'}), 403
-        return send_from_directory(app.static_folder, 'index.html')
-     
+        try:
+            current_user = get_jwt_identity()
+            user_id = current_user.get('user_id')
+
+            if request.method == 'POST':
+                existing_like = UserInteraction.query.filter_by(user_id=user_id, event_id=event_id, action='Liked').first()
+                if existing_like:
+                    return jsonify({'message': 'User has already liked this event'}), 200  # Change 400 to 200 to indicate it is already liked
+
+                new_like = UserInteraction(user_id=user_id, username=current_user.get('username'), action='Liked', event_id=event_id)
+                db.session.add(new_like)
+                db.session.commit()
+                return jsonify({'message': 'Event liked successfully'}), 200
+
+            elif request.method == 'DELETE':
+                existing_like = UserInteraction.query.filter_by(user_id=user_id, event_id=event_id, action='Liked').first()
+                if existing_like:
+                    db.session.delete(existing_like)
+                    db.session.commit()
+                    return jsonify({'message': 'Event unliked successfully'}), 200
+                else:
+                    return jsonify({'message': 'Like not found'}), 404
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': 'Failed to like/unlike event', 'details': str(e)}), 500
+
+    @app.route('/api/my-events', methods=['GET'])
+    @jwt_required()
+    def get_my_events():
+        """	
+        Get a list of events purchased by the current user.
+        Requires user authentication (JWT).
+        """
+        try:
+            current_user = get_jwt_identity()
+            user_id = current_user.get('user_id')	
+
+            purchased_events = db.session.query(Event).join(Transaction).filter(Transaction.user_id == user_id).all()
+
+            liked_events = db.session.query(Event).join(UserInteraction).filter(UserInteraction.user_id == user_id, UserInteraction.action == 'Liked').all()
+
+            purchased_events_data = [
+                {
+                    'event_id': event.event_id,
+                    'event_name': event.event_name,
+                    'event_date': event.event_date,
+                    'event_location': event.event_location,
+                    'event_poster': event.event_poster,
+                    'event_category': event.event_category,
+                }
+                for event in purchased_events
+            ]
+
+            liked_events_data = [
+                {
+                    'event_id': event.event_id,
+                    'event_name': event.event_name,
+                    'event_date': event.event_date,
+                    'event_location': event.event_location,
+                    'event_poster': event.event_poster,
+                    'event_category': event.event_category,
+                }
+                for event in liked_events
+            ]
+
+            return jsonify({
+                'purchased_events': purchased_events_data,
+                'liked_events': liked_events_data
+            }), 200
+
+        except Exception as e:
+            return jsonify({'error': 'Failed to retrieve events'}), 500  
+
+    @app.route('/view-proof-of-payment', methods=['GET'])
+    @jwt_required()
+    def view_proof_of_payment():
+        """
+        Display the proof of payment page.
+        Requires user authentication (JWT).
+        """
+        try:
+            current_user = get_jwt_identity()
+            user_id = current_user.get('user_id')
+
+            transactions = db.session.query(Transaction, Event).join(Event, Transaction.event_id == Event.event_id).filter(Transaction.user_id == user_id).all()
+
+            transactions_data = [
+                {
+                    'transaction_id': transaction.Transaction.transaction_id,
+                    'event_name': transaction.Event.event_name,
+                    'amount_paid': transaction.Transaction.amount_paid,
+                    'payment_status': transaction.Transaction.payment_status,
+                    'transaction_date': transaction.Transaction.transaction_date,
+                    'quantity': transaction.Transaction.quantity
+                }
+                for transaction in transactions
+            ]
+
+            return jsonify({'transactions': transactions_data}), 200
+        except Exception as e:
+            return jsonify({'error': 'Failed to retrieve transactions'}), 500
+    
 
 if __name__ == '__main__':
     app.run(debug=True)
