@@ -1,8 +1,8 @@
 import os, pymysql
-from models import db, User, UserInteraction, Profile, Notification, Event
+from models import db, User, UserInteraction, AdminDetails ,Profile, Notification, Event
 from flask import Flask, jsonify, request, redirect, url_for, send_from_directory
 from flask_login import LoginManager, logout_user
-from datetime import timedelta
+from datetime import timedelta, datetime
 from flask_cors import CORS
 from config import Config
 from flask import request, jsonify
@@ -537,6 +537,32 @@ class UserRoutes:
 
         return jsonify({'success': True}), 200
 
+    @app.route('/api/admin/users', methods=['GET'])
+    @jwt_required()
+    def get_users():
+        """
+        Get a list of users.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':	
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        users = User.query.all()
+        users_data = [
+            {
+                'user_id': user.user_id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role,
+                'status': user.status,
+            }
+            for user in users
+        ]
+        
+        return jsonify(users_data)
+
     @app.route('/admin/manage-events')
     @jwt_required()
     def manage_events():
@@ -549,7 +575,96 @@ class UserRoutes:
         if current_user.get('role') != 'Admin':	
             return jsonify({'error': 'Unauthorized access'}), 403
         return send_from_directory(app.static_folder, 'index.html')
-     
+        
+    @app.route('/api/admin/user-status/<int:user_id>', methods=['POST'])
+    @jwt_required()
+    def toggle_user_status(user_id):
+        """
+        Change the status of a user.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        if user.status == 'active':
+            user.status = 'blocked'
+           
+            log = UserInteraction(user_id=current_user.get('user_id'), username=current_user.get('username'), action='User_blocked')
+            db.session.add(log)
+            db.session.commit()
+        else:
+            user.status = 'active'
+            
+            log = UserInteraction(user_id=current_user.get('user_id'), username=current_user.get('username'), action='User_unblocked')
+            db.session.add(log)
+            db.session.commit()
+
+        db.session.commit()
+        return jsonify({'success': True}), 200
+           
+    
+    @app.route('/admin/create-admin', methods=['POST'])
+    @jwt_required()
+    def create_admin():
+        """	
+        Create an admin user.
+        Requires user authentication and admin role.
+        """
+        try:
+            current_user = get_jwt_identity()
+            if current_user.get('role') != 'Admin':
+                return jsonify({'error': 'Unauthorized access'}), 403
+
+            data = request.json
+            if not data:
+                return jsonify({'error': 'No data provided in request'}), 400
+
+            required_fields = ['name', 'surname', 'phone_number', 'email', 'country', 'password', 'username']
+            missing_fields = [field for field in required_fields if field not in data]
+
+            if missing_fields:
+                return jsonify({'error': f'Missing fields: {", ".join(missing_fields)}'}), 400
+
+            existing_user = User.query.filter((User.username == data['username']) | (User.email == data['email'])).first()
+            if existing_user:
+                return jsonify({'error': 'Username or email already exists'}), 400
+
+            new_admin = User(
+                username=data['username'],
+                email=data['email'],
+                role='Admin',
+                status='active',
+                created_at=datetime.utcnow()
+            )
+            new_admin.set_password(data['password']) 
+            db.session.add(new_admin)
+            db.session.flush() 
+
+            admin_details = AdminDetails(
+                admin_id=new_admin.user_id, 
+                name=data['name'],
+                surname=data['surname'],
+                phone_number=data['phone_number'],
+                country=data['country']
+            )
+
+            db.session.add(admin_details)
+            db.session.commit()
+
+            return jsonify({'message': 'Admin created successfully'}), 201
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Failed to create admin: {str(e)}'}), 500
+    
+    
+    
 
 if __name__ == '__main__':
     app.run(debug=True)
