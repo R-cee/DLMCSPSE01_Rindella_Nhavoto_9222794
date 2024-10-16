@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import './ManageEventsPage.css';
 import AdminHeader from './AdminHeader';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useNavigate } from 'react-router-dom';
 
 const ManageEventsPage = () => {
     const [events, setEvents] = useState([]);
     const [selectedEventId, setSelectedEventId] = useState(null);
-    const [reason, setReason] = useState(''); 
+    const [reason, setReason] = useState('');
+    const navigate = useNavigate(); 
 
     useEffect(() => {
         fetchEvents();
@@ -48,7 +52,19 @@ const ManageEventsPage = () => {
                 body: JSON.stringify(payload),
             });
             if (response.ok) {
-                fetchEvents(); 
+                fetchEvents();
+                if (status === 'Approved') {
+                    toast.success('Event approved successfully', {
+                        position: toast.POSITION.TOP_RIGHT,
+                    });
+                } else {
+                    toast.success(`Event rejected successfully - Reason: ${reason}`, {
+                        position: toast.POSITION.TOP_RIGHT,
+                    });
+                }
+                setTimeout(() => {
+                    navigate('/admin-dashboard'); 
+                }, 2000);
             } else {
                 const data = await response.json();
                 console.error('Error updating event status:', data);
@@ -62,6 +78,7 @@ const ManageEventsPage = () => {
     return (
         <div className="manage-events-page">
             <AdminHeader />
+            <ToastContainer />
             <h2>Manage Events</h2>
             <div className="event-cards-container">
                 {events.map((event) => (
@@ -97,7 +114,7 @@ const ManageEventsPage = () => {
                     <button
                         onClick={() => {
                             updateEventStatus(selectedEventId, 'Rejected');
-                            setSelectedEventId(null); // Close the reason box after submitting
+                            setSelectedEventId(null); 
                             setReason('');
                         }}
                     >

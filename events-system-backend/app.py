@@ -200,6 +200,26 @@ class UserRoutes:
     def event_images(filename):
         return send_from_directory(app.config['UPLOAD_EVENT'], filename)
   
+    @app.route('/api/admin/event-counters', methods=['GET'])
+    @jwt_required()
+    def get_event_counters():
+        """
+        Returns the count of events with different statuses (pending, approved, rejected).
+        """
+        current_user = get_jwt_identity()
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        pending_count = Event.query.filter_by(event_status='Pending').count()
+        approved_count = Event.query.filter_by(event_status='Approved').count()
+        rejected_count = Event.query.filter_by(event_status='Rejected').count()
+
+        return jsonify({
+            'pending': pending_count,
+            'approved': approved_count,
+            'rejected': rejected_count
+        })
+
     @app.route('/admin-dashboard')
     @jwt_required()
     def admin_dashboard():
@@ -530,6 +550,18 @@ class UserRoutes:
         log = UserInteraction(user_id=current_user.get('user_id'), username=current_user.get('username'), action=action)
         db.session.add(log)
 
+        if status == 'Approved':
+            message = f"{event.event_name} has been approved."
+        elif status == 'Rejected':
+            message = f"{event.event_name} has been rejected - {reason}"
+
+        notification = Notification(
+            user_id=event.host_id, 
+            message=message,
+            is_read=False
+        )
+        db.session.add(notification)
+
         if status == 'Rejected':
             event.rejection_reason = reason 
 
@@ -607,8 +639,7 @@ class UserRoutes:
 
         db.session.commit()
         return jsonify({'success': True}), 200
-           
-    
+             
     @app.route('/admin/create-admin', methods=['POST'])
     @jwt_required()
     def create_admin():
@@ -662,9 +693,6 @@ class UserRoutes:
         except Exception as e:
             db.session.rollback()
             return jsonify({'error': f'Failed to create admin: {str(e)}'}), 500
-    
-    
-    
 
 if __name__ == '__main__':
     app.run(debug=True)
