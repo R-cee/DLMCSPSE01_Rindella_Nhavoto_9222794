@@ -2,11 +2,12 @@ import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import RegistrationForm from './components/RegistrationForm';
 import LoginForm from './components/LoginForm';
-import VettingForm from './components/VettingForm';
-import AdminDashboardPage from './components/AdminDashboardPage';
-import AdminLogs from './components/AdminLogs';
-
-
+import LandingPage from './components/LandingPage';
+import CheckoutPage from './components/CheckoutPage';
+import CheckoutForm from './components/CheckoutForm';
+import EventDetails from './components/EventDetails';
+import MyEvents from './components/MyEvents';
+import ViewProofOfPayment from './components/ViewProofOfPayment';
 
 function App() {
   return (
@@ -14,10 +15,12 @@ function App() {
       <Routes>
         <Route path="/register" element={<RegistrationForm />} />
         <Route path="/login" element={<LoginForm />} />
-        <Route path="/admin-dashboard" element={<AdminDashboardPage />} />
-        <Route path="/admin/vetting/:user_id" element={<VettingForm isAdmin={true} />} />
-        <Route path="/admin/view-logs" element={<AdminLogs />} />
-
+        <Route path="/landing" element={<LandingPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/events/:event_id" element={<EventDetails />} />
+        <Route path="/checkout/:event_id" element={<CheckoutForm />} />
+        <Route path="/my-events" element={<MyEvents />} />        
+        <Route path="/view-proof-of-payment" element={<ViewProofOfPayment />} />
       </Routes>
     </Router>
   );

@@ -333,27 +333,22 @@ class UserRoutes:
             event_id = data.get('event_id')
             tickets_purchased = data.get('tickets_purchased', 1)
 
-            # Check for missing required fields
             if not payment_intent_id or not event_id:
                 return jsonify({'error': 'Missing payment intent ID or event ID'}), 400
 
-            # Retrieve the PaymentIntent from Stripe
             intent = stripe.PaymentIntent.retrieve(payment_intent_id)
 
-            # Check if the payment was successful
             if intent['status'] == 'succeeded':
-                amount_paid = intent['amount'] / 100  # Convert to USD (cents to dollars)
+                amount_paid = intent['amount'] / 100 
                 
-                # Find the event in the database
+    
                 event = Event.query.get(event_id)
                 if not event:
                     return jsonify({'error': 'Event not found'}), 404
 
-                # Check if there are enough tickets available
                 if event.event_capacity < tickets_purchased:
                     return jsonify({'error': 'Not enough tickets available'}), 400
 
-                # Create a new transaction
                 new_transaction = Transaction(
                     event_id=event_id,
                     user_id=current_user.get('user_id'),
@@ -363,10 +358,8 @@ class UserRoutes:
                     transaction_date=datetime.utcnow()
                 )
 
-                # Update event capacity
                 event.event_capacity -= tickets_purchased
 
-                # Save the transaction and commit changes to the database
                 db.session.add(new_transaction)
                 db.session.commit()
 
@@ -487,6 +480,5 @@ class UserRoutes:
         except Exception as e:
             return jsonify({'error': 'Failed to retrieve transactions'}), 500
     
-
 if __name__ == '__main__':
     app.run(debug=True)
