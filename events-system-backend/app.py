@@ -1,5 +1,5 @@
 import os, pymysql
-from models import db, User, UserInteraction, Profile, Event, Transaction, PaymentAccount
+from models import db, User, UserInteraction, Notification, Profile, Event, Transaction, PaymentAccount
 from flask import Flask, jsonify, request, redirect, url_for, send_from_directory
 from flask_login import LoginManager, logout_user, current_user
 from datetime import timedelta, datetime
@@ -194,7 +194,6 @@ class UserRoutes:
         file_path = os.path.join(app.config['UPLOAD_EVENT'], filename)
         print(f"Serving file from: {file_path}")
         return send_from_directory(app.config['UPLOAD_EVENT'], filename)
-
 
     @app.route('/uploads/certs/<filename>')
     def uploaded_cert_file(filename):
@@ -423,7 +422,6 @@ class UserRoutes:
             ]
             return jsonify(events_data)
 
-
     @app.route('/host/payment-account', methods=['GET', 'POST'])
     @jwt_required()
     def payment_account():
@@ -528,6 +526,57 @@ class UserRoutes:
         except Exception as e:
             return jsonify({'error': f'Failed to retrieve reports: {str(e)}'}), 500
 
+    @app.route('/notifications', methods=['GET'])
+    @jwt_required()
+    def get_notifications():
+        try:
+            current_user = get_jwt_identity()
 
+            user_id = current_user.get('user_id')
+
+            notifications = Notification.query.filter_by(user_id=user_id).order_by(Notification.created_at.desc()).all()
+
+            if notifications:
+                notifications_data = [
+                    {
+                        'message': notification.message,
+                        'is_read': notification.is_read,
+                        'created_at': notification.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    for notification in notifications
+                ]
+                return jsonify({'notifications': notifications_data}), 200
+            else:
+                return jsonify({'notifications': []}), 200
+
+        except Exception as e:
+            return jsonify({'error': f'Failed to retrieve notifications: {str(e)}'}), 500
+
+    @app.route('/notifications/unread-count', methods=['GET'])
+    @jwt_required()
+    def get_unread_notification_count():
+        try:
+            current_user = get_jwt_identity()
+            user_id = current_user.get('user_id')
+            
+            unread_count = Notification.query.filter_by(user_id=user_id, is_read=False).count()
+            return jsonify({'unread_count': unread_count})
+        except Exception as e:
+            return jsonify({'error': f'Failed to retrieve unread count: {str(e)}'}), 500
+
+    @app.route('/notifications/mark-as-read', methods=['POST'])
+    @jwt_required()
+    def mark_notifications_as_read():
+        try:
+            current_user = get_jwt_identity()
+            user_id = current_user.get('user_id')
+            
+            Notification.query.filter_by(user_id=user_id, is_read=False).update({'is_read': True})
+            db.session.commit()
+
+            return jsonify({'message': 'Notifications marked as read successfully'})
+        except Exception as e:
+            return jsonify({'error': f'Failed to mark notifications as read: {str(e)}'}), 500
+    
 if __name__ == '__main__':
     app.run(debug=True)

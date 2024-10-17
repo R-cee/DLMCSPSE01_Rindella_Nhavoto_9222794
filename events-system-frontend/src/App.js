@@ -8,6 +8,7 @@ import HostEventsPage from './components/HostEventsPage';
 import PaymentAccountForm from './components/PaymentAccountForm';
 import HostReports from './components/HostReports';
 import EventForm from './components/EventForm';
+import Notification from './components/Notification'
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/host-events" element={<HostEventsPage />} />
         <Route path="/host/payment-account" element={<PaymentAccountForm />} />
         <Route path="/host/reports" element={<HostReports />} />
+        <Route path="/notifications" element={<Notification />} />
       </Routes>
     </Router>
   );
