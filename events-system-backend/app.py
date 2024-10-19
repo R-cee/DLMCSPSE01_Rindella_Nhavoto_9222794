@@ -1,8 +1,8 @@
 import os, pymysql
-from models import db, User, UserInteraction, Notification, Profile, Event, Transaction, PaymentAccount
+from models import db, User, UserInteraction, Profile, AdminDetails, Notification, Event, Transaction, PaymentAccount
 from flask import Flask, jsonify, request, redirect, url_for, send_from_directory
 from flask_login import LoginManager, logout_user, current_user
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, datetime
 from flask_cors import CORS
 from config import Config
 from flask import request, jsonify
@@ -142,7 +142,11 @@ class UserRoutes:
             if user.status != 'active':
                 return jsonify({'errors': 'User is not active'}), 400
             
-            access_token = create_access_token(identity={'user_id': user.user_id, 'role': user.role, 'username': user.username})
+            access_token = create_access_token(identity={
+                'user_id': user.user_id,
+                'username': user.username,
+                'role': user.role
+            , 'username': user.username})
 
 
             if user.role == 'Attendee':
@@ -154,7 +158,12 @@ class UserRoutes:
             else:
                 return jsonify({'errors': 'Invalid user role'}), 400
 
-            return jsonify({'access_token': access_token, 'redirect': redirect_url, 'username': user.username, 'role': user.role}), 200
+            return jsonify({
+                'access_token': access_token,
+                'redirect': redirect_url,
+                'username': user.username,
+                'role': user.role
+            }), 200
         else:
             return jsonify({'errors': 'Invalid username or password'}), 400
 
@@ -168,13 +177,6 @@ class UserRoutes:
         logout_user()
         return redirect(url_for('login'))
 
-    @app.route('/host-dashboard')
-    def host_dashboard():
-        """
-        Display the host dashboard page.
-        """
-        return send_from_directory(app.static_folder, 'index.html')
-    
     def allowed_file(filename):
             """
             Check if the provided filename has an allowed file extension.
@@ -217,9 +219,72 @@ class UserRoutes:
             return jsonify({'status': profile.status})
         return jsonify({'status': None})
     
-    @app.route('/vetting', methods=['POST'])
+    @app.route('/event_images/<filename>')
+    def event_images(filename):
+        return send_from_directory(app.config['UPLOAD_EVENT'], filename)
+  
+    @app.route('/api/admin/event-counters', methods=['GET'])
     @jwt_required()
-    def vetting():
+    def get_event_counters():
+        """
+        Returns the count of events with different statuses (pending, approved, rejected).
+        """
+        current_user = get_jwt_identity()
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        pending_count = Event.query.filter_by(event_status='Pending').count()
+        approved_count = Event.query.filter_by(event_status='Approved').count()
+        rejected_count = Event.query.filter_by(event_status='Rejected').count()
+
+        return jsonify({
+            'pending': pending_count,
+            'approved': approved_count,
+            'rejected': rejected_count
+        })
+
+    @app.route('/admin-dashboard')
+    @jwt_required()
+    def admin_dashboard():
+        """
+        Display the admin dashboard page.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        return send_from_directory(app.static_folder, 'index.html')
+
+      
+   
+        """	
+        Get the vetting information of a user.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        profile = Profile.query.filter_by(user_id=user_id).first()
+        if not profile:
+            return jsonify({'error': 'Profile not found'}), 404
+
+        profile_data = {
+            'first_name': profile.first_name,
+            'last_name': profile.last_name,
+            'phone_number': profile.phone_number,
+            'address': profile.address,
+            'host_type': profile.host_type,
+            'document_id': profile.document_id,
+            'business_certificate': profile.business_certificate,
+            'status': profile.status
+        }
+        
+        return jsonify(profile_data)
+     
         """
         Submit vetting form data.
         Requires user authentication (JWT).
@@ -269,6 +334,388 @@ class UserRoutes:
         db.session.commit()
 
         return jsonify({'message': 'Profile submitted and pending approval'}), 200
+
+    @app.route('/api/admin/profile-counters')
+    @jwt_required()
+    def get_profile_counters():
+        """	
+        Get the number of pending, approved, and rejected profiles.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+        
+        pending_count = Profile.query.filter_by(status='Pending').count()
+        approved_count = Profile.query.filter_by(status='Approved').count()
+        rejected_count = Profile.query.filter_by(status='Rejected').count()
+        
+        return jsonify({
+            'pending': pending_count,
+            'approved': approved_count,
+            'rejected': rejected_count
+        })
+
+    @app.route('/api/admin/profiles', methods=['GET'])
+    @jwt_required()
+    def get_profiles_by_status():
+        """
+        Get a list of profiles by status.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        status = request.args.get('status')
+        if status not in ['Pending', 'Approved', 'Rejected']:
+            return jsonify({'error': 'Invalid status'}), 400
+
+        profiles = Profile.query.filter_by(status=status).all()
+        profiles_data = [
+            {
+                'user_id': profile.user_id,
+                'username': User.query.filter_by(user_id=profile.user_id).first().username,
+                'first_name': profile.first_name,
+                'last_name': profile.last_name,
+                'host_type': profile.host_type,
+            }
+            for profile in profiles
+        ]
+        
+        return jsonify(profiles_data)
+
+    @app.route('/admin/vetting/<int:user_id>', methods=['GET'])
+    @jwt_required()
+    def view_vetting_information(user_id):
+        """	
+        Get the vetting information of a user.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        profile = Profile.query.filter_by(user_id=user_id).first()
+        if not profile:
+            return jsonify({'error': 'Profile not found'}), 404
+
+        profile_data = {
+            'first_name': profile.first_name,
+            'last_name': profile.last_name,
+            'phone_number': profile.phone_number,
+            'address': profile.address,
+            'host_type': profile.host_type,
+            'document_id': profile.document_id,
+            'business_certificate': profile.business_certificate,
+            'status': profile.status
+        }
+        
+        return jsonify(profile_data)
+        
+    @app.route('/admin/vetting/update/<int:user_id>', methods=['POST'])
+    @jwt_required()
+    def update_profile_status(user_id):
+        """
+        Update the status of a user's profile.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        profile = Profile.query.filter_by(user_id=user_id).first()
+
+        if not profile:
+            return jsonify({'error': 'Profile not found'}), 404
+
+        data = request.json
+        status = data.get('status')
+
+        if status not in ['Approved', 'Rejected']:
+            return jsonify({'error': 'Invalid status provided'}), 400
+
+        profile.status = status
+
+        try:
+            log = UserInteraction(
+                user_id=current_user['user_id'],  
+                username=current_user['username'], 
+                action=f'Profile_{status.lower()}'
+            )
+            db.session.add(log)
+
+            notification_message = "Your profile has been approved." if status == "Approved" else "Your profile has been rejected."
+            notification = Notification(
+                user_id=user_id,
+                message=notification_message,
+                is_read=False
+            )
+            db.session.add(notification)
+
+            db.session.commit()
+
+            return jsonify({'success': True}), 200
+
+        except Exception as e:
+            db.session.rollback()
+
+            return jsonify({'error': 'Database commit failed'}), 500
+
+    @app.route('/admin/view-logs', methods=['GET'])
+    @jwt_required()
+    def view_logs():
+        """
+        Display the user interactions in the admin logs
+        Requires user authentication and admin role.
+        """
+        try:
+            current_user = get_jwt_identity()
+            if current_user.get('role') != 'Admin':
+                return jsonify({'error': 'Unauthorized access'}), 403
+
+            page = request.args.get('page', 1, type=int)
+            action_filter = request.args.get('action', None, type=str)
+            username_search = request.args.get('username', None, type=str)
+
+            query = UserInteraction.query
+
+            if action_filter:
+                query = query.filter(UserInteraction.action == action_filter)
+
+            if username_search:
+                query = query.filter(UserInteraction.username.ilike(f"%{username_search}%"))
+
+            pagination = query.order_by(UserInteraction.timestamp.desc()).paginate(page=page, per_page=10, error_out=False)
+            interactions = pagination.items
+
+            interactions_data = [
+                {
+                    'interaction_id': interaction.interaction_id,
+                    'user_id': interaction.user_id,
+                    'username': interaction.username,
+                    'action': interaction.action,
+                    'timestamp': interaction.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                    'event_id': interaction.event_id
+                }
+                for interaction in interactions
+            ]
+
+            return jsonify({
+                'interactions': interactions_data,
+                'total_pages': pagination.pages,
+                'current_page': pagination.page,
+                'total_items': pagination.total
+            }), 200
+
+        except Exception as e:
+            return jsonify({'error': f'Failed to retrieve logs: {str(e)}'}), 500
+  
+    @app.route('/api/admin/events', methods=['GET'])
+    @jwt_required()
+    def get_admin_events():
+        """
+        Get a list of events.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+        
+        events = Event.query.all()
+        events_data = [
+            {
+                'event_id': event.event_id,
+                'event_name': event.event_name,
+                'event_description': event.event_description,
+                'event_location': event.event_location,
+                'event_date': event.event_date.strftime('%Y-%m-%dT%H:%M'),
+                'event_status': event.event_status,
+                'event_poster': event.event_poster,
+                'event_category': event.event_category,
+            }
+            for event in events
+        ]
+        
+        return jsonify(events_data)
+
+    @app.route('/admin/event/update-status/<int:event_id>', methods=['POST'])
+    @jwt_required()
+    def update_event_status(event_id):
+        """
+        Update the status of an event.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':	
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        event = Event.query.get(event_id)
+        if not event:
+            return jsonify({'error': 'Event not found'}), 404
+
+        data = request.json
+        status = data.get('status')
+        reason = data.get('reason', '')
+
+        if status not in ['Approved', 'Rejected']:
+            return jsonify({'error': 'Invalid status provided'}), 400
+
+        event.event_status = status
+
+        action = f'Event_{status.lower()}'
+        log = UserInteraction(user_id=current_user.get('user_id'), username=current_user.get('username'), action=action)
+        db.session.add(log)
+
+        if status == 'Approved':
+            message = f"{event.event_name} has been approved."
+        elif status == 'Rejected':
+            message = f"{event.event_name} has been rejected - {reason}"
+
+        notification = Notification(
+            user_id=event.host_id, 
+            message=message,
+            is_read=False
+        )
+        db.session.add(notification)
+
+        if status == 'Rejected':
+            event.rejection_reason = reason 
+
+        db.session.commit()
+
+        return jsonify({'success': True}), 200
+
+    @app.route('/api/admin/users', methods=['GET'])
+    @jwt_required()
+    def get_users():
+        """
+        Get a list of users.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':	
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        users = User.query.all()
+        users_data = [
+            {
+                'user_id': user.user_id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role,
+                'status': user.status,
+            }
+            for user in users
+        ]
+        
+        return jsonify(users_data)
+
+    @app.route('/admin/manage-events')
+    @jwt_required()
+    def manage_events():
+        """
+        Display the manage events page.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':	
+            return jsonify({'error': 'Unauthorized access'}), 403
+        return send_from_directory(app.static_folder, 'index.html')
+        
+    @app.route('/api/admin/user-status/<int:user_id>', methods=['POST'])
+    @jwt_required()
+    def toggle_user_status(user_id):
+        """
+        Change the status of a user.
+        Requires user authentication and admin role.
+        """
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'Admin':
+            return jsonify({'error': 'Unauthorized access'}), 403
+
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        if user.status == 'active':
+            user.status = 'blocked'
+           
+            log = UserInteraction(user_id=current_user.get('user_id'), username=current_user.get('username'), action='User_blocked')
+            db.session.add(log)
+            db.session.commit()
+        else:
+            user.status = 'active'
+            
+            log = UserInteraction(user_id=current_user.get('user_id'), username=current_user.get('username'), action='User_unblocked')
+            db.session.add(log)
+            db.session.commit()
+
+        db.session.commit()
+        return jsonify({'success': True}), 200
+             
+    @app.route('/admin/create-admin', methods=['POST'])
+    @jwt_required()
+    def create_admin():
+        """	
+        Create an admin user.
+        Requires user authentication and admin role.
+        """
+        try:
+            current_user = get_jwt_identity()
+            if current_user.get('role') != 'Admin':
+                return jsonify({'error': 'Unauthorized access'}), 403
+
+            data = request.json
+            if not data:
+                return jsonify({'error': 'No data provided in request'}), 400
+
+            required_fields = ['name', 'surname', 'phone_number', 'email', 'country', 'password', 'username']
+            missing_fields = [field for field in required_fields if field not in data]
+
+            if missing_fields:
+                return jsonify({'error': f'Missing fields: {", ".join(missing_fields)}'}), 400
+
+            existing_user = User.query.filter((User.username == data['username']) | (User.email == data['email'])).first()
+            if existing_user:
+                return jsonify({'error': 'Username or email already exists'}), 400
+
+            new_admin = User(
+                username=data['username'],
+                email=data['email'],
+                role='Admin',
+                status='active',
+                created_at=datetime.utcnow()
+            )
+            new_admin.set_password(data['password']) 
+            db.session.add(new_admin)
+            db.session.flush() 
+
+            admin_details = AdminDetails(
+                admin_id=new_admin.user_id, 
+                name=data['name'],
+                surname=data['surname'],
+                phone_number=data['phone_number'],
+                country=data['country']
+            )
+
+            db.session.add(admin_details)
+            db.session.commit()
+
+            return jsonify({'message': 'Admin created successfully'}), 201
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Failed to create admin: {str(e)}'}), 500
 
     @app.route('/create-event', methods=['POST'])
     @jwt_required()

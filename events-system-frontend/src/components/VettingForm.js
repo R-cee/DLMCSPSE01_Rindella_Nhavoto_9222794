@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import './VettingForm.css';
+<<<<<<< HEAD
 import HostHeader from './HostHeader';
+=======
+import AdminHeader from './AdminHeader';
+>>>>>>> admin
 
 const VettingForm = ({ isAdmin = false }) => {
   const { user_id } = useParams();
@@ -126,7 +130,11 @@ const VettingForm = ({ isAdmin = false }) => {
 
   return (
     <div className="vetting-form-container">
+<<<<<<< HEAD
       <HostHeader />
+=======
+      {userRole && userRole.toLowerCase() === 'admin' && <AdminHeader />}
+>>>>>>> admin
       <form onSubmit={handleSubmit}>
         <label>
           Host Type:
