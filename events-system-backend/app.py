@@ -1,5 +1,5 @@
 import os, pymysql
-from models import db, User, UserInteraction, Event, Transaction
+from models import db, User, UserInteraction, Event, Transaction, Notification, Like
 from flask import Flask, jsonify, request, redirect, url_for, send_from_directory
 from flask_login import LoginManager, logout_user
 from datetime import timedelta, datetime
@@ -30,6 +30,46 @@ def create_database_if_not_exists():
     cursor.execute("CREATE DATABASE IF NOT EXISTS `events-system-db`;")
     cursor.close()
     connection.close()
+
+def notify_upcoming_events_for_user(user_id):
+    """
+    Function to check for upcoming events liked or paid for by the user.
+    It creates notifications if any event is approaching within 1-2 days.
+    """
+    try:
+        now = datetime.utcnow()
+        one_day_from_now = now + timedelta(days=1)
+        two_days_from_now = now + timedelta(days=2)
+
+        print(f"Current UTC time: {now}")
+        print(f"Checking events between {one_day_from_now} and {two_days_from_now}")
+
+        upcoming_paid_events = db.session.query(Event).join(Transaction, Transaction.event_id == Event.event_id)\
+            .filter(Transaction.user_id == user_id, Event.event_date.between(one_day_from_now, two_days_from_now))\
+            .all()
+
+        upcoming_liked_events = db.session.query(Event).join(Like, Like.event_id == Event.event_id)\
+            .filter(Like.user_id == user_id, Event.event_date.between(one_day_from_now, two_days_from_now))\
+            .all()
+
+        upcoming_events = set(upcoming_paid_events + upcoming_liked_events)
+
+        print(f"Found upcoming events: {upcoming_events}")
+
+        for event in upcoming_events:
+            notification_message = f"{event.event_name} is approaching on {event.event_date.strftime('%Y-%m-%d %H:%M')}"
+            new_notification = Notification(
+                user_id=user_id,
+                message=notification_message,
+                is_read=False,
+                created_at=datetime.utcnow()
+            )
+            db.session.add(new_notification)
+
+        db.session.commit()
+
+    except Exception as e:
+        print(f"Failed to create notifications for user {user_id}: {str(e)}")
 
 # Function to create admin user if not exists
 def create_admin_user():
@@ -376,23 +416,26 @@ class UserRoutes:
     def like_unlike_event(event_id):
         """
         Handle the like/unlike event action by a user.
+        This endpoint stores likes in the 'Like' table.
         """
         try:
             current_user = get_jwt_identity()
             user_id = current_user.get('user_id')
 
+            # Handle 'like' action
             if request.method == 'POST':
-                existing_like = UserInteraction.query.filter_by(user_id=user_id, event_id=event_id, action='Liked').first()
+                existing_like = Like.query.filter_by(user_id=user_id, event_id=event_id).first()
                 if existing_like:
-                    return jsonify({'message': 'User has already liked this event'}), 200  # Change 400 to 200 to indicate it is already liked
+                    return jsonify({'message': 'User has already liked this event'}), 200  # Already liked
 
-                new_like = UserInteraction(user_id=user_id, username=current_user.get('username'), action='Liked', event_id=event_id)
+                new_like = Like(user_id=user_id, event_id=event_id)
                 db.session.add(new_like)
                 db.session.commit()
                 return jsonify({'message': 'Event liked successfully'}), 200
 
+            # Handle 'unlike' action
             elif request.method == 'DELETE':
-                existing_like = UserInteraction.query.filter_by(user_id=user_id, event_id=event_id, action='Liked').first()
+                existing_like = Like.query.filter_by(user_id=user_id, event_id=event_id).first()
                 if existing_like:
                     db.session.delete(existing_like)
                     db.session.commit()
@@ -407,17 +450,19 @@ class UserRoutes:
     @app.route('/api/my-events', methods=['GET'])
     @jwt_required()
     def get_my_events():
-        """	
-        Get a list of events purchased by the current user.
+        """
+        Get a list of events purchased and liked by the current user.
         Requires user authentication (JWT).
         """
         try:
             current_user = get_jwt_identity()
-            user_id = current_user.get('user_id')	
+            user_id = current_user.get('user_id')
 
+            # Get events purchased by the user
             purchased_events = db.session.query(Event).join(Transaction).filter(Transaction.user_id == user_id).all()
 
-            liked_events = db.session.query(Event).join(UserInteraction).filter(UserInteraction.user_id == user_id, UserInteraction.action == 'Liked').all()
+            # Get events liked by the user
+            liked_events = db.session.query(Event).join(Like).filter(Like.user_id == user_id).all()
 
             purchased_events_data = [
                 {
@@ -449,8 +494,8 @@ class UserRoutes:
             }), 200
 
         except Exception as e:
-            return jsonify({'error': 'Failed to retrieve events'}), 500  
-
+            return jsonify({'error': 'Failed to retrieve events'}), 500
+          
     @app.route('/view-proof-of-payment', methods=['GET'])
     @jwt_required()
     def view_proof_of_payment():
@@ -480,5 +525,44 @@ class UserRoutes:
         except Exception as e:
             return jsonify({'error': 'Failed to retrieve transactions'}), 500
     
+    @app.route('/attendee-notifications', methods=['GET'])
+    @jwt_required()
+    def get_notifications():
+        current_user = get_jwt_identity()
+        user_id = current_user.get('user_id')
+
+        notify_upcoming_events_for_user(user_id)
+
+        notifications = Notification.query.filter_by(user_id=user_id).order_by(Notification.created_at.desc()).all()
+
+        notifications_data = [
+            {
+                'message': notification.message,
+                'is_read': notification.is_read,
+                'created_at': notification.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            for notification in notifications
+        ]
+
+        return jsonify({'notifications': notifications_data}), 200
+
+    @app.route('/notifications/mark-as-read', methods=['POST'])
+    @jwt_required()
+    def mark_notifications_as_read():
+        """
+        Marks all unread notifications for the current user as read.
+        """
+        try:
+            current_user = get_jwt_identity()
+            user_id = current_user.get('user_id')
+
+            Notification.query.filter_by(user_id=user_id, is_read=False).update({'is_read': True})
+            db.session.commit()
+
+            return jsonify({'message': 'Notifications marked as read successfully'}), 200
+
+        except Exception as e:
+            return jsonify({'error': f'Failed to mark notifications as read: {str(e)}'}), 500
+
 if __name__ == '__main__':
     app.run(debug=True)

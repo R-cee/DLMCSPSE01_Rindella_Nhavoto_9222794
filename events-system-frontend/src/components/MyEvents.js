@@ -12,32 +12,72 @@ const MyEvents = () => {
     setUserRole(role);
   }, []);
 
-  useEffect(() => {
-    const fetchMyEvents = async () => {
-      try {
-        const token = localStorage.getItem('jwt_token');
-        const response = await fetch('/api/my-events', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+  const fetchMyEvents = async () => {
+    try {
+      const token = localStorage.getItem('jwt_token');
+      const response = await fetch('/api/my-events', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          setPurchasedEvents(data.purchased_events);
-          setLikedEvents(data.liked_events);
-        } else {
-          console.error('Failed to fetch user events');
-        }
-      } catch (error) {
-        console.error('Error fetching user events:', error);
+      if (response.ok) {
+        const data = await response.json();
+        setPurchasedEvents(data.purchased_events);
+        setLikedEvents(data.liked_events);
+      } else {
+        console.error('Failed to fetch user events');
       }
-    };
+    } catch (error) {
+      console.error('Error fetching user events:', error);
+    }
+  };
 
+  useEffect(() => {
     fetchMyEvents();
   }, []);
+
+  const likeEvent = async (eventId) => {
+    try {
+      const token = localStorage.getItem('jwt_token');
+      const response = await fetch(`/events/${eventId}/like`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        console.log('Event liked successfully');
+        fetchMyEvents();
+      } else {
+        console.error('Failed to like event');
+      }
+    } catch (error) {
+      console.error('Error liking event:', error);
+    }
+  };
+
+  const unlikeEvent = async (eventId) => {
+    try {
+      const token = localStorage.getItem('jwt_token');
+      const response = await fetch(`/events/${eventId}/like`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        console.log('Event unliked successfully');
+        fetchMyEvents(); 
+      } else {
+        console.error('Failed to unlike event');
+      }
+    } catch (error) {
+      console.error('Error unliking event:', error);
+    }
+  };
 
   return (
     <>
@@ -71,6 +111,10 @@ const MyEvents = () => {
                   <h3>{event.event_name}</h3>
                   <p><strong>Date:</strong> {new Date(event.event_date).toLocaleString()}</p>
                   <p><strong>Location:</strong> {event.event_location}</p>
+                  <div className="like-buttons">
+                    <button onClick={() => likeEvent(event.event_id)}>Like</button>
+                    <button onClick={() => unlikeEvent(event.event_id)}>Unlike</button>
+                  </div>
                 </div>
               </div>
             ))}

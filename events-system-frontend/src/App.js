@@ -8,6 +8,7 @@ import CheckoutForm from './components/CheckoutForm';
 import EventDetails from './components/EventDetails';
 import MyEvents from './components/MyEvents';
 import ViewProofOfPayment from './components/ViewProofOfPayment';
+import AttendeeNotifications from './components/AttendeeNotifications';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
         <Route path="/checkout/:event_id" element={<CheckoutForm />} />
         <Route path="/my-events" element={<MyEvents />} />        
         <Route path="/view-proof-of-payment" element={<ViewProofOfPayment />} />
+        <Route path="/attendee-notifications" element={<AttendeeNotifications />} />
       </Routes>
     </Router>
   );

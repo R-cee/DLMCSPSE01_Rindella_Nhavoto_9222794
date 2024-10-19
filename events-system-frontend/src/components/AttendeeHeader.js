@@ -1,11 +1,36 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AttendeeHeader.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBell } from '@fortawesome/free-solid-svg-icons';
 
-const Header = () => {
+const AttendeeHeader = () => {
   const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUnreadNotifications = async () => {
+      try {
+        const token = localStorage.getItem('jwt_token');
+        const response = await fetch('/notifications/unread-count', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUnreadCount(data.unread_count);
+        } else {
+          console.error('Failed to fetch unread notifications count');
+        }
+      } catch (error) {
+        console.error('Error fetching unread notifications count:', error);
+      }
+    };
+
+    fetchUnreadNotifications();
+  }, []);
 
   return (
     <header className="header">
@@ -24,8 +49,12 @@ const Header = () => {
           <li><button onClick={() => navigate('/my-events')}>My Events</button></li>
           <li><button onClick={() => navigate('/landing')}>Home</button></li>
           <li>
-            <button className="notification-button" onClick={() => navigate('/notifications')}>
+            <button
+              className={`notification-button ${unreadCount > 0 ? 'glow' : ''}`}
+              onClick={() => navigate('/attendee-notifications')}
+            >
               <FontAwesomeIcon icon={faBell} />
+              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
             </button>
           </li>
         </ul>
@@ -34,4 +63,4 @@ const Header = () => {
   );
 };
 
-export default Header;
+export default AttendeeHeader;
