@@ -42,18 +42,18 @@ const Notifications = () => {
           </tr>
         </thead>
         <tbody>
-          {notifications.length > 0 ? (
-            notifications.map((notification, index) => (
-              <tr key={index} className={notification.is_read ? "notification-item read" : "notification-item unread"}>
-                <td>{notification.message}</td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="2">No notifications available.</td>
+        {notifications.length > 0 ? (
+          notifications.map((notification, index) => (
+            <tr key={index} className={notification.is_read ? "notification-item read" : "notification-item unread"}>
+              <td>{notification.message}</td>
             </tr>
-          )}
-        </tbody>
+          ))
+        ) : (
+          <tr>
+            <td colSpan="2">No notifications available.</td>
+          </tr>
+        )}
+    </tbody>
       </table>
     </div>
   );

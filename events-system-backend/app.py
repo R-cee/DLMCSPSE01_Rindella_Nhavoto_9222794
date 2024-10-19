@@ -33,46 +33,6 @@ def create_database_if_not_exists():
     cursor.close()
     connection.close()
 
-def notify_upcoming_events_for_user(user_id):
-    """
-    Function to check for upcoming events liked or paid for by the user.
-    It creates notifications if any event is approaching within 1-2 days.
-    """
-    try:
-        now = datetime.utcnow()
-        one_day_from_now = now + timedelta(days=1)
-        two_days_from_now = now + timedelta(days=2)
-
-        print(f"Current UTC time: {now}")
-        print(f"Checking events between {one_day_from_now} and {two_days_from_now}")
-
-        upcoming_paid_events = db.session.query(Event).join(Transaction, Transaction.event_id == Event.event_id)\
-            .filter(Transaction.user_id == user_id, Event.event_date.between(one_day_from_now, two_days_from_now))\
-            .all()
-
-        upcoming_liked_events = db.session.query(Event).join(Like, Like.event_id == Event.event_id)\
-            .filter(Like.user_id == user_id, Event.event_date.between(one_day_from_now, two_days_from_now))\
-            .all()
-
-        upcoming_events = set(upcoming_paid_events + upcoming_liked_events)
-
-        print(f"Found upcoming events: {upcoming_events}")
-
-        for event in upcoming_events:
-            notification_message = f"{event.event_name} is approaching on {event.event_date.strftime('%Y-%m-%d %H:%M')}"
-            new_notification = Notification(
-                user_id=user_id,
-                message=notification_message,
-                is_read=False,
-                created_at=datetime.utcnow()
-            )
-            db.session.add(new_notification)
-
-        db.session.commit()
-
-    except Exception as e:
-        print(f"Failed to create notifications for user {user_id}: {str(e)}")
-
 # Function to create admin user if not exists
 def create_admin_user():
     admin_username = "admin"
@@ -93,6 +53,46 @@ def create_admin_user():
         print("Admin user created!")
     else:
         print("Admin user already exists.")
+
+def notify_upcoming_events_for_user(user_id):
+    """
+    Function to check for upcoming events liked or paid for by the user.
+    It creates notifications if any event is approaching within 1-2 days.
+    """
+    try:
+        today = datetime.utcnow()
+        two_days_later = today + timedelta(days=2)
+
+        events = db.session.query(Event).join(Transaction, Transaction.event_id == Event.event_id)\
+            .filter(Transaction.user_id == user_id, Event.event_date.between(today, two_days_later))\
+            .all()
+
+        liked_events = db.session.query(Event).join(Like, Like.event_id == Event.event_id)\
+            .filter(Like.user_id == user_id, Event.event_date.between(today, two_days_later))\
+            .all()
+
+        upcoming_events = set(events + liked_events)
+
+        for event in upcoming_events:
+            existing_notification = Notification.query.filter_by(
+                user_id=user_id, 
+                message=f"{event.event_name} is approaching on {event.event_date.strftime('%Y-%m-%d %H:%M')}"
+            ).first()
+
+            if not existing_notification:
+                notification_message = f"{event.event_name} is approaching on {event.event_date.strftime('%Y-%m-%d %H:%M')}"
+                new_notification = Notification(
+                    user_id=user_id,
+                    message=notification_message,
+                    is_read=False,
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(new_notification)
+
+        db.session.commit()
+
+    except Exception as e:
+        print(f"Failed to create upcoming event notifications for user {user_id}: {str(e)}")
 
 with app.app_context():
     create_database_if_not_exists() 
@@ -918,20 +918,32 @@ class UserRoutes:
         current_user = get_jwt_identity()
         user_id = current_user.get('user_id')
 
-        notify_upcoming_events_for_user(user_id)
+        try:
+            notify_upcoming_events_for_user(user_id)
 
-        notifications = Notification.query.filter_by(user_id=user_id).order_by(Notification.created_at.desc()).all()
+            notifications = Notification.query.filter_by(user_id=user_id).order_by(Notification.created_at.desc()).all()
 
-        notifications_data = [
-            {
-                'message': notification.message,
-                'is_read': notification.is_read,
-                'created_at': notification.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            }
-            for notification in notifications
-        ]
+            notifications_data = []
 
-        return jsonify({'notifications': notifications_data}), 200
+            for notification in notifications:
+                event_name = notification.message.split(' is approaching on ')[0]
+                event_date_str = notification.message.split(' is approaching on ')[1]
+                event_date = datetime.strptime(event_date_str, '%Y-%m-%d %H:%M')
+
+                if event_date < datetime.utcnow():
+                    notification.is_read = True
+                    db.session.commit()
+
+                notifications_data.append({
+                    'message': notification.message,
+                    'is_read': notification.is_read,
+                    'created_at': notification.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                })
+
+            return jsonify({'notifications': notifications_data}), 200
+
+        except Exception as e:
+            return jsonify({'error': f'Failed to retrieve notifications: {str(e)}'}), 500
 
     @app.route('/notifications/mark-as-read', methods=['POST'])
     @jwt_required()
