@@ -494,11 +494,13 @@ class UserRoutes:
             report_data = []
 
             for event in host_events:
-                transactions = Transaction.query.filter_by(event_id=event.event_id).all()
-                total_sales = sum(transaction.amount_paid for transaction in transactions if transaction.payment_status == 'Success')
+                transactions = db.session.query(Transaction, User).join(User, Transaction.user_id == User.user_id)\
+                    .filter(Transaction.event_id == event.event_id).all()
+
+                total_sales = sum(transaction.Transaction.amount_paid for transaction in transactions if transaction.Transaction.payment_status == 'Success')
 
                 total_tickets = event.event_capacity
-                tickets_sold = len([transaction for transaction in transactions if transaction.payment_status == 'Success'])
+                tickets_sold = len([transaction.Transaction for transaction in transactions if transaction.Transaction.payment_status == 'Success'])
                 tickets_unsold = total_tickets - tickets_sold
 
                 report_data.append({
@@ -512,11 +514,11 @@ class UserRoutes:
                     'tickets_unsold': tickets_unsold,
                     'transactions': [
                         {
-                            'transaction_id': transaction.transaction_id,
-                            'user_id': transaction.user_id,
-                            'amount_paid': transaction.amount_paid,
-                            'payment_status': transaction.payment_status,
-                            'transaction_date': transaction.transaction_date.strftime('%Y-%m-%d %H:%M:%S')
+                            'transaction_id': transaction.Transaction.transaction_id,
+                            'username': transaction.User.username,
+                            'amount_paid': transaction.Transaction.amount_paid,
+                            'payment_status': transaction.Transaction.payment_status,
+                            'transaction_date': transaction.Transaction.transaction_date.strftime('%Y-%m-%d %H:%M:%S')
                         } for transaction in transactions
                     ]
                 })

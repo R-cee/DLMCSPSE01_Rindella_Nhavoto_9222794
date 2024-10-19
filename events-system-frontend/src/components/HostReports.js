@@ -82,7 +82,7 @@ const HostReports = () => {
               <thead>
                 <tr>
                   <th>Transaction ID</th>
-                  <th>User ID</th>
+                  <th>Username</th>
                   <th>Amount Paid</th>
                   <th>Payment Status</th>
                   <th>Timestamp</th>
@@ -93,7 +93,7 @@ const HostReports = () => {
                   report.transactions.map((transaction) => (
                     <tr key={transaction.transaction_id}>
                       <td>{transaction.transaction_id}</td>
-                      <td>{transaction.user_id}</td>
+                      <td>{transaction.username}</td>
                       <td>${transaction.amount_paid.toFixed(2)}</td>
                       <td>{transaction.payment_status}</td>
                       <td>{new Date(transaction.transaction_date).toLocaleString()}</td>
