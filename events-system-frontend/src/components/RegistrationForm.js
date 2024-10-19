@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import Slideshow from './Slideshow';  // Import the Slideshow component
-import './RegistrationForm.css';  // Import the CSS file
+import Slideshow from './Slideshow'; 
+import './RegistrationForm.css';  
 
 const RegistrationForm = () => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
-    role: 'Attendee',  // default value
+    role: 'Attendee',
     password: ''
   });
 
@@ -49,7 +49,7 @@ const RegistrationForm = () => {
 
   return (
     <div className="registration-container">
-      <Slideshow />  {/* Display the slideshow on the left */}
+      <Slideshow /> 
       <div className="form-container">
         <h2>Register</h2>
         <form onSubmit={handleSubmit}>

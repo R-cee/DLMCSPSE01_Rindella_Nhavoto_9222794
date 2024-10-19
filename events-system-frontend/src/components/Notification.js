@@ -5,16 +5,22 @@ import HostHeader from './HostHeader';
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [error, setError] = useState(null);
-  const [userRole, setUserRole] = useState('');
+  const [userRole, setUserRole] = useState(''); 
 
   useEffect(() => {
     const fetchUserRole = () => {
-      const user = JSON.parse(localStorage.getItem('user'));
-      if (user && user.role) {
-        setUserRole(user.role); 
+      const storedUser = localStorage.getItem('user');
+      console.log("Stored User: ", storedUser);
+
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        console.log("Parsed User Role: ", user.role);
+        if (user && user.role) {
+          setUserRole(user.role);
+        }
       }
     };
-    
+
     fetchUserRole();
     fetchNotifications();
   }, []);
@@ -31,7 +37,7 @@ const Notifications = () => {
       if (response.ok) {
         const data = await response.json();
         setNotifications(data.notifications);
-        markNotificationsAsRead(); 
+        markNotificationsAsRead();
       } else {
         setError('Failed to fetch notifications');
       }
@@ -56,8 +62,8 @@ const Notifications = () => {
 
   return (
     <div className="notifications-container">
-      {userRole && userRole === 'EventHost' && <HostHeader />}
-      <h2>Notifications</h2>
+          <HostHeader />
+          <h2>Notifications</h2>
       {error && <p className="error">{error}</p>}
       <table className="notifications-table">
         <thead>

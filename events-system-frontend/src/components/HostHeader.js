@@ -42,7 +42,7 @@ const HostHeader = () => {
               <button>Profile</button>
               <div className="dropdown-content">
                 <button onClick={() => navigate('')}>Change Password</button>
-                <button onClick={() => navigate('')}>Payment Account</button>
+                <button onClick={() => navigate('/host/payment-account')}>Payment Account</button>
                 <button onClick={() => navigate('/host/reports')}>Reports</button>
               </div>
             </div>
