@@ -113,10 +113,6 @@ const MyEvents = () => {
                 <h3>{event.event_name}</h3>
                 <p><strong>Date:</strong> {new Date(event.event_date).toLocaleString()}</p>
                 <p><strong>Location:</strong> {event.event_location}</p>
-                <div className="like-buttons">
-                  <button onClick={() => likeEvent(event.event_id)}>Like</button>
-                  <button onClick={() => unlikeEvent(event.event_id)}>Unlike</button>
-                </div>
               </div>
             </div>
           ))}

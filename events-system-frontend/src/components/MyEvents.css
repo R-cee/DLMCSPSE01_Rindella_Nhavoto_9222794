@@ -6,7 +6,7 @@
   box-sizing: border-box;
 }
 
-h2 {
+.my-events-page h2 {
   text-align: center;
   color: #ffffff;
 }
@@ -43,5 +43,5 @@ h2 {
 
 .event-details h3 {
   margin: 0;
-  color: #f5eaea;
+  color: #461da5;
 }
