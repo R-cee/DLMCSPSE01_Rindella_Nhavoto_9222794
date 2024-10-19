@@ -21,6 +21,7 @@ import MyEvents from './components/MyEvents';
 import ViewProofOfPayment from './components/ViewProofOfPayment';
 import AttendeeNotifications from './components/AttendeeNotifications';
 import HostDashboardPage from './components/HostDashboardPage';
+import ChangePasswordForm from './components/ChangePasswordForm';
 
 function App() {
   return (
@@ -50,6 +51,7 @@ function App() {
         <Route path="/view-proof-of-payment" element={<ViewProofOfPayment />} />
         <Route path="/attendee-notifications" element={<AttendeeNotifications />} />
         <Route path="/host-dashboard" element={<HostDashboardPage />} />
+        <Route path="/change-password" element={<ChangePasswordForm />} />
       </Routes>
     </Router>
   );

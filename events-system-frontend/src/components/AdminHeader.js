@@ -14,7 +14,7 @@ const Header = () => {
             <div className="settings-dropdown">
               <button>Profile</button>
               <div className="dropdown-content">
-                <button onClick={() => navigate('')}>Change Password</button>
+                <button onClick={() => navigate('/change-password')}>Change Password</button>
               </div>
             </div>
           </li>

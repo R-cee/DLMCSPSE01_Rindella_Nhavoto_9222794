@@ -5,6 +5,7 @@ from flask_login import LoginManager, logout_user, current_user
 from datetime import timedelta, datetime, datetime, datetime
 from flask_cors import CORS
 from config import Config
+from werkzeug.utils import secure_filename
 from flask import request, jsonify
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import stripe
@@ -1382,6 +1383,31 @@ class UserRoutes:
         except Exception as e:
             db.session.rollback()
             return jsonify({'error': f'Failed to create admin: {str(e)}'}), 500
+
+    @app.route('/change-password', methods=['POST'])
+    @jwt_required()
+    def change_password():
+        """	
+        Change the password of the current user.
+        Requires user authentication (JWT). 
+        """
+        try:
+            current_user = get_jwt_identity()
+            
+            data = request.json
+            old_password = data.get('old_password')
+            new_password = data.get('new_password')
+
+            if not current_user.check_password(old_password):
+                return jsonify({'error': 'Old password is incorrect'}), 400
+
+            current_user.set_password(new_password)
+            db.session.commit()
+
+            return jsonify({'message': 'Password changed successfully'}), 200
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': 'Failed to change password'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
