@@ -179,26 +179,26 @@ class PaymentAccount(db.Model):
         self.stripe_account_id = stripe_account_id
         self.mpesa_number = mpesa_number
       
-class Like(db.Model):
-    """
-    Like model to store user likes for events.
-    Attributes:
-        like_id: Primary key, unique identifier for each like.
-        user_id: Foreign key linking to the user who liked the event.
-        event_id: Foreign key linking to the event that was liked.  
-        created_at: Timestamp when the like was created.
-    """
-    __tablename__ = 'likes'
-    like_id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
-    event_id = db.Column(db.Integer, db.ForeignKey('events.event_id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    user = db.relationship('User', backref='likes')
-    event = db.relationship('Event', backref='liked_by')
-
-
-
+# class IntegrationSettings(db.Model):
+#     """
+#     Model to store integration settings for the application.
+#     Attributes:
+#         integration_id (int): Primary key, unique identifier for each integration.
+#         provider (str): The provider of the integration (e.g., 'Stripe' or 'M-Pesa').
+#         api_key (str): The API key for the integration.
+#         status (str): The status of the integration (e.g., 'Active' or 'Inactive').
+#     """
+#     __tablename__ = 'integration_settings'
+#     integration_id = db.Column(db.Integer, primary_key=True)
+#     provider = db.Column(db.String(50), nullable=False)  # Stripe or M-Pesa
+#     api_key = db.Column(db.String(255), nullable=False)
+#     status = db.Column(db.String(50), default='Active')  # Active or Inactive  
+    
+#     def __init__(self, provider, api_key, status):
+#         self.provider = provider
+#         self.api_key = api_key
+#         self.status = status    
+      
 class AdminDetails(db.Model):
     """
     AdminDetails model to store additional information for admins.
@@ -219,5 +219,5 @@ class AdminDetails(db.Model):
     admin = db.relationship('User', backref=db.backref('admin_details', uselist=False))
         
 # Location where the database will be created
-DATABASE_URL = 'mysql+pymysql://root:P%40ssw0rd24@localhost/events-system-db'
+DATABASE_URL = 'mysql+pymysql://root:P%40ssw0rd24@localhost/events-system'
 engine = create_engine(DATABASE_URL)
