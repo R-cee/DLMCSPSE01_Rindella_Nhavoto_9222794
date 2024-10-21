@@ -1,0 +1,105 @@
+.notifications-page {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    background-color: #f4f6f9;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); 
+}
+
+h2 {
+    text-align: center;
+    color: #f4f6f9;
+    font-size: 2em;
+    margin-bottom: 20px;
+    font-weight: bold;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.mark-as-read-button {
+    display: block;
+    margin: 20px auto;
+    padding: 12px 24px;
+    background-color: #28a745;
+    color: #ffffff;
+    border: none;
+    border-radius: 50px; 
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.mark-as-read-button:hover {
+    background-color: #218838;
+    transform: scale(1.05);
+}
+
+.notifications-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.notifications-table th,
+.notifications-table td {
+    border: none; 
+    padding: 12px;
+    text-align: left;
+    color: #1A1B6B; 
+    font-size: 16px;
+}
+
+.notifications-table th {
+    background-color: #1A1B6B; 
+    font-weight: bold;
+    color: #ffffff;
+    text-transform: uppercase;
+}
+
+.notifications-table tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+.notifications-table tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+.notification-item.unread {
+    background-color: #f0f8ff;
+    font-weight: bold;
+}
+
+.notification-item.read {
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+.notification-item td {
+    position: relative;
+}
+
+.notification-date {
+    font-size: 0.9em;
+    color: #666;
+    position: absolute;
+    top: 15px;
+    right: 15px;
+}
+
+.notification-badge {
+    background-color: #ff5050;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    margin-left: 8px;
+}
+
+.notification-item:hover {
+    background-color: #e6f7ff; 
+}

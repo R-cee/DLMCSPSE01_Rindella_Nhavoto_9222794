@@ -1,0 +1,79 @@
+.host-reports-page {
+  padding-top: 80px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+h1 {
+  text-align: center;
+  color: #fff;
+  margin-bottom: 20px;
+}
+
+.report-card {
+  background-color: #1A1B6B;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  margin-bottom: 30px;
+}
+
+.report-card h2 {
+  color: #1A1B6B;
+  margin-bottom: 10px;
+}
+
+.report-card p {
+  color: #666;
+  margin: 5px 0;
+}
+
+.transactions-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.transactions-table th,
+.transactions-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.transactions-table th {
+  background-color: #4C088A;
+  color: #fff;
+}
+
+.transactions-table td {
+  background-color: #1A1B6B;
+  color: #fff;
+}
+
+.error-message {
+  color: #ff6b6b;
+  text-align: center;
+}
+
+.host-reports-page {
+  padding: 20px;
+}
+
+.report-card {
+  padding: 20px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  margin-bottom: 20px;
+}
+
+.chart-container {
+  width: 100%;
+  max-width: 500px;
+  margin: 20px auto;
+  height: 300px;
+  position: relative;
+}
+

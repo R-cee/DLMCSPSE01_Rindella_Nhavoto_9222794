@@ -1,0 +1,102 @@
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: 'Arial', sans-serif;
+  background-color: #f4f4f4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.header {
+  width: 100%;
+  background-color: #1A1B6B;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+}
+
+.nav-links {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.nav-links ul {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 20px;
+}
+
+.nav-links li {
+  display: inline;
+}
+
+.nav-links a, .nav-links button {
+  text-decoration: none;
+  color: #ffffff;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.nav-links a:hover, .nav-links button:hover {
+  color: #e0e0e0;
+}
+
+.content {
+  width: 100%;
+  max-width: 1000px;
+  background: #ffffff;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  margin-top: 140px;
+  text-align: center;
+}
+
+.content h1 {
+  font-size: 32px;
+  color: #333333;
+  margin-bottom: 20px;
+}
+
+.get-started-button, .create-event-button, .view-events-button {
+  display: block;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  background-color: #4C088A;
+  width: 400px;
+  margin: 10px auto;  
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  margin-top: 20px; 
+}
+
+.get-started-button:hover, .create-event-button:hover, .view-events-button:hover {
+  background-color: #7132b4;
+}
+
+.create-event-button:disabled, .view-events-button:disabled {
+  background-color: #cccccc; 
+  cursor: not-allowed;
+  color: #666666; 
+}
+
+.vetting-message {
+  font-size: 18px;
+  color: #ff6b6b;
+  margin-bottom: 20px;
+}
