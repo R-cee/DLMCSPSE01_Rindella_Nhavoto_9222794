@@ -41,13 +41,26 @@ const HostDashboardPage = () => {
 
   const handleGetStarted = () => {
     const token = localStorage.getItem('jwt_token');
-    fetch('/api/vetting', {
-      method: 'POST',
+    
+    fetch('/vetting', {
+      method: 'GET',  // We're only fetching the empty form data here
       headers: {
         'Authorization': `Bearer ${token}`,
+      },
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        console.error(data.error);  
+      } else {
+        navigate('/vetting', { state: { formData: data } });
       }
+    })
+    .catch(error => {
+      console.error('Error fetching vetting form:', error);
     });
   };
+  
 
   const handleViewEvents = () => {
     navigate('/host-events');

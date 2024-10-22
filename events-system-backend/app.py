@@ -269,7 +269,7 @@ class UserRoutes:
         """
         return send_from_directory(app.static_folder, 'index.html')
    
-    @app.route('/vetting', methods=['POST'])
+    @app.route('/vetting', methods=['GET','POST'])
     @jwt_required()
     def vetting():
         """
@@ -280,47 +280,63 @@ class UserRoutes:
         
         user_id = current_user.get('user_id')
         
-        existing_profile = Profile.query.filter_by(user_id=user_id).first()
-        if existing_profile:
-            return jsonify({'error': 'Profile already submitted and pending approval'}), 403
+        if request.method == 'GET':
+            existing_profile = Profile.query.filter_by(user_id=user_id).first()
+            if existing_profile:
+                return jsonify({'error': 'Profile already submitted and pending approval'}), 403
 
-        form_data = request.form
-        files = request.files
-
-        document_id_file = files.get('document_id')
-        business_certificate_file = files.get('business_certificate') if form_data.get('host_type') in ['Business', 'Organization'] else None
-
-        document_id_filename = None
-        business_certificate_filename = None
-
-        if document_id_file:
-            document_id_filename = secure_filename(document_id_file.filename)
-            document_id_file.save(os.path.join(app.config['UPLOAD_ID'], document_id_filename))
-
-        if business_certificate_file:
-            business_certificate_filename = secure_filename(business_certificate_file.filename)
-            business_certificate_file.save(os.path.join(app.config['UPLOAD_CERT'], business_certificate_filename))
-
-        profile = Profile(
-            user_id=user_id,
-            first_name=form_data.get('first_name'),
-            last_name=form_data.get('last_name'),
-            phone_number=form_data.get('phone_number'),
-            address=form_data.get('address'),
-            host_type=form_data.get('host_type'),
-            document_id=document_id_filename,
-            business_certificate=business_certificate_filename,
-            status='Pending' 
-        )
+            return jsonify({
+                'first_name': '',
+                'last_name': '',
+                'phone_number': '',
+                'address': '',
+                'host_type': 'Individual',
+                'document_id': None,
+                'business_certificate': None
+            }), 200
         
-        db.session.add(profile)
-        db.session.commit()
-        
-        log = UserInteraction(user_id=current_user.get('user_id'), username=current_user.get('username'), action='Profile_submitted')
-        db.session.add(log)
-        db.session.commit()
+        if request.method == 'POST':
+            existing_profile = Profile.query.filter_by(user_id=user_id).first()
+            if existing_profile:
+                return jsonify({'error': 'Profile already submitted and pending approval'}), 403
 
-        return jsonify({'message': 'Profile submitted and pending approval'}), 200
+            form_data = request.form
+            files = request.files
+
+            document_id_file = files.get('document_id')
+            business_certificate_file = files.get('business_certificate') if form_data.get('host_type') in ['Business', 'Organization'] else None
+
+            document_id_filename = None
+            business_certificate_filename = None
+
+            if document_id_file:
+                document_id_filename = secure_filename(document_id_file.filename)
+                document_id_file.save(os.path.join(app.config['UPLOAD_ID'], document_id_filename))
+
+            if business_certificate_file:
+                business_certificate_filename = secure_filename(business_certificate_file.filename)
+                business_certificate_file.save(os.path.join(app.config['UPLOAD_CERT'], business_certificate_filename))
+
+            profile = Profile(
+                user_id=user_id,
+                first_name=form_data.get('first_name'),
+                last_name=form_data.get('last_name'),
+                phone_number=form_data.get('phone_number'),
+                address=form_data.get('address'),
+                host_type=form_data.get('host_type'),
+                document_id=document_id_filename,
+                business_certificate=business_certificate_filename,
+                status='Pending' 
+            )
+            
+            db.session.add(profile)
+            db.session.commit()
+            
+            log = UserInteraction(user_id=current_user.get('user_id'), username=current_user.get('username'), action='Profile_submitted')
+            db.session.add(log)
+            db.session.commit()
+
+            return jsonify({'message': 'Profile submitted and pending approval'}), 200
 
     @app.route('/create-event', methods=['POST'])
     @jwt_required()
