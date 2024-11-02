@@ -931,24 +931,30 @@ class UserRoutes:
     @app.route('/attendee-notifications', methods=['GET'])
     @jwt_required()
     def get_attendee_notifications():
-        current_user = get_jwt_identity()
-        user_id = current_user.get('user_id')
-
+        """
+        Retrieve notifications for the current attendee.
+        """
         try:
-            notify_upcoming_events_for_user(user_id)
+            current_user = get_jwt_identity()
+            user_id = current_user.get('user_id')
 
+            # Fetch notifications for the user
             notifications = Notification.query.filter_by(user_id=user_id).order_by(Notification.created_at.desc()).all()
 
             notifications_data = []
-
             for notification in notifications:
-                event_name = notification.message.split(' is approaching on ')[0]
-                event_date_str = notification.message.split(' is approaching on ')[1]
-                event_date = datetime.strptime(event_date_str, '%Y-%m-%d %H:%M')
+                # Split and parse event details from the message, if applicable
+                if 'is approaching on' in notification.message:
+                    try:
+                        event_name, event_date_str = notification.message.split(' is approaching on ')
+                        event_date = datetime.strptime(event_date_str, '%Y-%m-%d %H:%M')
+                    except (ValueError, IndexError):
+                        continue  # Skip improperly formatted messages
 
-                if event_date < datetime.utcnow():
-                    notification.is_read = True
-                    db.session.commit()
+                    # Mark past event notifications as read
+                    if event_date < datetime.utcnow():
+                        notification.is_read = True
+                        db.session.commit()
 
                 notifications_data.append({
                     'message': notification.message,
@@ -959,7 +965,9 @@ class UserRoutes:
             return jsonify({'notifications': notifications_data}), 200
 
         except Exception as e:
-            return jsonify({'error': f'Failed to retrieve notifications: {str(e)}'}), 500
+            print(f"Error retrieving notifications: {e}")
+            return jsonify({'error': 'Failed to retrieve notifications'}), 500
+
 
     @app.route('/notifications/mark-as-read', methods=['POST'])
     @jwt_required()
@@ -1193,7 +1201,8 @@ class UserRoutes:
             query = UserInteraction.query
 
             if action_filter:
-                query = query.filter(UserInteraction.action == action_filter)
+                query = query.filter(UserInteraction.action.ilike(f"%{action_filter}%"))
+
 
             if username_search:
                 query = query.filter(UserInteraction.username.ilike(f"%{username_search}%"))

@@ -13,20 +13,28 @@ const Notifications = () => {
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem('jwt_token');
+      if (!token) {
+        setError('Authentication token is missing');
+        return;
+      }
+  
       const response = await fetch('/attendee-notifications', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-
-      if (response.ok) {
+  
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || 'Failed to fetch notifications');
+        console.error(`Error fetching notifications: ${data.error}`);
+      } else {
         const data = await response.json();
         setNotifications(data.notifications);
-      } else {
-        setError('Failed to fetch notifications');
       }
     } catch (error) {
-      setError('Error fetching notifications');
+      setError('An unexpected error occurred while fetching notifications.');
+      console.error('Error:', error);
     }
   };
 

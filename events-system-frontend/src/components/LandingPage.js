@@ -203,7 +203,7 @@ const LandingPage = () => {
                   <div className="event-card-back">
                     <h3>{event.event_name}</h3>
                     <p><strong>Description:</strong> {event.event_description}</p>
-                    <p><strong>Price:</strong> ${event.event_price}</p>
+                    <p><strong>Price:</strong> {event.event_price}</p>
                     <p><strong>Tickets Remaining:</strong> {event.event_capacity} tickets</p>
 
                     <select

@@ -55,7 +55,7 @@ const HostReports = () => {
             <p><strong>Date:</strong> {new Date(report.event_date).toLocaleString()}</p>
             <p><strong>Location:</strong> {report.event_location}</p>
             <p><strong>Category:</strong> {report.event_category}</p>
-            <p><strong>Total Sales:</strong> ${report.total_sales.toFixed(2)}</p>
+            <p><strong>Total Sales:</strong> {report.total_sales.toFixed(2)}</p>
 
             <div className="chart-container">
               <h3>Ticket Sales</h3>

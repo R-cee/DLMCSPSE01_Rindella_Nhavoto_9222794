@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: events_system_db
+    environment:
+      MYSQL_ROOT_PASSWORD: P@ssw0rd24
+      MYSQL_DATABASE: events-system-db
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+
+  backend:
+    build:
+      context: ./events-system-backend
+    container_name: events_system_backend
+    environment:
+      - FLASK_ENV=development
+      - SECRET_KEY=Rinr123
+      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:P%40ssw0rd24@db/events-system-db
+      - SQLALCHEMY_TRACK_MODIFICATIONS=False
+      - UPLOAD_EVENT=/app/event_images
+      - UPLOAD_ID=/app/profile_gov_id
+      - UPLOAD_CERT=/app/profile_cert
+    volumes:
+      - ./events-system-backend/event_images:/app/event_images
+      - ./events-system-backend/profile_gov_id:/app/profile_gov_id
+      - ./events-system-backend/profile_cert:/app/profile_cert
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    command: flask run --host=0.0.0.0
+
+  frontend:
+    build:
+      context: ./events-system-frontend
+    container_name: events_system_frontend
+    stdin_open: true
+    ports:
+      - "3000:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    command: npm start
+
+volumes:
+  db_data:

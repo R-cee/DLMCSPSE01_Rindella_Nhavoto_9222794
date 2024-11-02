@@ -6,13 +6,33 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 const AdminDashboardPage = () => {
-  const [counters, setCounters] = useState({ pending: 0, approved: 0, rejected: 0 });
+  const [profileCounters, setProfileCounters] = useState({ pending: 0, approved: 0, rejected: 0 });
+  const [eventCounters, setEventCounters] = useState({ pending: 0, approved: 0, rejected: 0 });
   const [profiles, setProfiles] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchCounters = async () => {
+    const fetchProfileCounters = async () => {
+      try {
+        const token = localStorage.getItem('jwt_token');
+        const response = await fetch('/api/admin/profile-counters', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setProfileCounters(data);
+        } else {
+          console.error('Failed to fetch profile counters');
+        }
+      } catch (error) {
+        console.error('Error fetching profile counters:', error);
+      }
+    };
+
+    const fetchEventCounters = async () => {
       try {
         const token = localStorage.getItem('jwt_token');
         const response = await fetch('/api/admin/event-counters', {
@@ -22,7 +42,7 @@ const AdminDashboardPage = () => {
         });
         if (response.ok) {
           const data = await response.json();
-          setCounters(data);
+          setEventCounters(data);
         } else {
           console.error('Failed to fetch event counters');
         }
@@ -31,7 +51,8 @@ const AdminDashboardPage = () => {
       }
     };
 
-    fetchCounters();
+    fetchProfileCounters();
+    fetchEventCounters();
   }, []);
 
   const handleStatusClick = async (status) => {
@@ -89,21 +110,21 @@ const AdminDashboardPage = () => {
         <div className="counters">
           <div className="counter" onClick={() => handleStatusClick('Pending')}>
             <h3>Pending</h3>
-            <p>{counters.pending}</p>
+            <p>{profileCounters.pending}</p>
           </div>
           <div className="counter" onClick={() => handleStatusClick('Approved')}>
             <h3>Approved</h3>
-            <p>{counters.approved}</p>
+            <p>{profileCounters.approved}</p>
           </div>
           <div className="counter" onClick={() => handleStatusClick('Rejected')}>
             <h3>Rejected</h3>
-            <p>{counters.rejected}</p>
+            <p>{profileCounters.rejected}</p>
           </div>
         </div>
 
         <div className="actions">
           <button
-            className={`manage-events-button ${counters.pending > 0 ? 'glow' : ''}`}
+            className={`manage-events-button ${eventCounters.pending > 0 ? 'glow' : ''}`}
             onClick={handleManageEvents}
           >
             Manage Events

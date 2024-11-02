@@ -49,14 +49,20 @@ const AdminLogs = () => {
       <AdminHeader />
       <h2>User Interactions Logs</h2>
       <div className="filters">
-        <select onChange={(e) => setActionFilter(e.target.value)} value={actionFilter}>
-          <option value="">All Actions</option>
-          <option value="Login">Login</option>
-          <option value="Event_created">Event Created</option>
-          <option value="Paid">Paid</option>
-          <option value="Liked">Liked</option>
-          <option value="Vetting_form">Vetting Form Submitted</option>
-        </select>
+      <select onChange={(e) => setActionFilter(e.target.value)} value={actionFilter}>
+        <option value="">All Actions</option>
+        <option value="Login">Login</option>
+        <option value="Event_created">Event Created</option>
+        <option value="Paid">Paid</option>
+        <option value="Liked">Liked</option>
+        <option value="Profile_submitted">Profile Submitted</option>
+        <option value="Profile_approved">Profile Approved</option>
+        <option value="Event_updated">Event Updated</option>
+        <option value="Event_approved">Event Approved</option>
+        <option value="User_unblocked">User Unblocked</option>
+        <option value="User_blocked">User Blocked</option>
+        <option value="Refund issued">Refund Issued</option>
+      </select>
         <input
           type="text"
           placeholder="Search by Username"
