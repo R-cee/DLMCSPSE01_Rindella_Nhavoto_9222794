@@ -8,7 +8,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 
-const stripePromise = loadStripe('pk_test_51Q9xXHP5Lv2xb3IZmKeM5mzcg1pi6KTaqDFg5qdRqkgTeknH8bWGf9QS6bBl93UnKi5TzlqCEjFWgyVWygGHqlcd00S1owcfET');
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
 const CheckoutForm = ({ event }) => {
   const stripe = useStripe();
