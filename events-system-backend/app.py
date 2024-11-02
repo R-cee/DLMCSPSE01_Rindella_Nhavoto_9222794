@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 app = Flask(__name__, static_folder='../events-system-frontend/build', static_url_path='')
 CORS(app)
 
-stripe.api_key = 'sk_test_51Q9xXHP5Lv2xb3IZKkyE6Dhh9WuVKx30sTt9b83BlgXL4THFKbbWCVIRJ1JaeHxk0J46oEArSxZGnYK45HbG69yw0072XMGkWh'
+stripe.api_key = Config.STRIPE_SECRET_KEY
 
 app.config.from_object(Config)
 app.config['JWT_SECRET_KEY'] = Config.SECRET_KEY
