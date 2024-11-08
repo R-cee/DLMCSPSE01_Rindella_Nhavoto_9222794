@@ -18,14 +18,17 @@ services:
       context: ./events-system-backend
     container_name: events_system_backend
     environment:
-      - FLASK_ENV=development
-      - SECRET_KEY=Rinr123
-      - SQLALCHEMY_DATABASE_URI=mysql+pymysql://root:P%40ssw0rd24@db/events-system-db
-      - SQLALCHEMY_TRACK_MODIFICATIONS=False
-      - UPLOAD_EVENT=/app/event_images
-      - UPLOAD_ID=/app/profile_gov_id
-      - UPLOAD_CERT=/app/profile_cert
+      FLASK_ENV: development
+      SECRET_KEY: Rinr123
+      # Match exactly the database URI format expected in config.py
+      SQLALCHEMY_DATABASE_URI: mysql+pymysql://root:P%40ssw0rd24@db/events-system-db
+      SQLALCHEMY_TRACK_MODIFICATIONS: 'False'
+      # Matching paths with those expected in config.py
+      UPLOAD_EVENT: /app/event_images
+      UPLOAD_ID: /app/profile_gov_id
+      UPLOAD_CERT: /app/profile_cert
     volumes:
+      # Mapping Docker container directories to local directories
       - ./events-system-backend/event_images:/app/event_images
       - ./events-system-backend/profile_gov_id:/app/profile_gov_id
       - ./events-system-backend/profile_cert:/app/profile_cert
@@ -43,7 +46,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - CHOKIDAR_USEPOLLING=true
+      CHOKIDAR_USEPOLLING: 'true'
     depends_on:
       - backend
     command: npm start
